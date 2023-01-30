@@ -6,7 +6,14 @@
             "Component_[1258474389347419349]": {
                 "$type": "{27F1E1A1-8D9D-4C3B-BD3A-AFB9762449C0} TransformComponent",
                 "Id": 1258474389347419349,
-                "Parent Entity": ""
+                "Parent Entity": "",
+                "Transform Data": {
+                    "Translate": [
+                        0.09340095520019531,
+                        0.0,
+                        0.0
+                    ]
+                }
             },
             "Component_[13794782637510032398]": {
                 "$type": "EditorLockComponent",
@@ -51,6 +58,95 @@
         }
     },
     "Entities": {
+        "Entity_[627125462551]": {
+            "Id": "Entity_[627125462551]",
+            "Name": "Camera1",
+            "Components": {
+                "Component_[10857505988199476945]": {
+                    "$type": "EditorDisabledCompositionComponent",
+                    "Id": 10857505988199476945
+                },
+                "Component_[13184129796145920915]": {
+                    "$type": "{27F1E1A1-8D9D-4C3B-BD3A-AFB9762449C0} TransformComponent",
+                    "Id": 13184129796145920915,
+                    "Parent Entity": "Entity_[7507839849146]",
+                    "Transform Data": {
+                        "Translate": [
+                            -0.1255035400390625,
+                            -0.000011444091796875,
+                            0.2737709581851959
+                        ],
+                        "Rotate": [
+                            0.00003783872307394631,
+                            87.41353607177734,
+                            -89.98992919921875
+                        ]
+                    }
+                },
+                "Component_[13851545062833685520]": {
+                    "$type": "ROS2CameraSensorEditorComponent",
+                    "Id": 13851545062833685520,
+                    "VerticalFieldOfViewDeg": 120.0,
+                    "Width": 1000,
+                    "Height": 1000,
+                    "Depth": false,
+                    "SensorConfig": {
+                        "Publishers": {
+                            "Camera Info": {
+                                "Type": "sensor_msgs::msg::CameraInfo",
+                                "Topic": "camera_info"
+                            },
+                            "Color Image": {
+                                "Type": "sensor_msgs::msg::Image",
+                                "Topic": "camera_image_color"
+                            },
+                            "Depth Image": {
+                                "Type": "sensor_msgs::msg::Image",
+                                "Topic": "camera_image_depth"
+                            }
+                        }
+                    }
+                },
+                "Component_[15699370438199256934]": {
+                    "$type": "EditorVisibilityComponent",
+                    "Id": 15699370438199256934
+                },
+                "Component_[16555120613177471404]": {
+                    "$type": "EditorOnlyEntityComponent",
+                    "Id": 16555120613177471404
+                },
+                "Component_[2928740960492604966]": {
+                    "$type": "EditorLockComponent",
+                    "Id": 2928740960492604966
+                },
+                "Component_[2960494464813414208]": {
+                    "$type": "EditorInspectorComponent",
+                    "Id": 2960494464813414208
+                },
+                "Component_[4582071354509872745]": {
+                    "$type": "EditorEntitySortComponent",
+                    "Id": 4582071354509872745
+                },
+                "Component_[5446640595374031513]": {
+                    "$type": "GenericComponentWrapper",
+                    "Id": 5446640595374031513,
+                    "m_template": {
+                        "$type": "ROS2FrameComponent",
+                        "Namespace Configuration": {
+                            "Namespace Strategy": 2
+                        }
+                    }
+                },
+                "Component_[639346623829199284]": {
+                    "$type": "EditorEntityIconComponent",
+                    "Id": 639346623829199284
+                },
+                "Component_[9603794332890477150]": {
+                    "$type": "EditorPendingCompositionComponent",
+                    "Id": 9603794332890477150
+                }
+            }
+        },
         "Entity_[7477775078074]": {
             "Id": "Entity_[7477775078074]",
             "Name": "rl_wheel_link_visual",
@@ -863,6 +959,7 @@
                     "$type": "EditorEntitySortComponent",
                     "Id": 6563269519356188309,
                     "Child Entity Order": [
+                        "Entity_[627125462551]",
                         "Entity_[7503544881850]",
                         "Entity_[7494954947258]",
                         "Entity_[7525019718330]",

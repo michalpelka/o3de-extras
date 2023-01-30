@@ -21,11 +21,15 @@ namespace ROS2
     void ROS2SensorComponent::Activate()
     {
         AZ::TickBus::Handler::BusConnect();
+        m_deltaTimeHistogram.Init("onFrequencyTick Delta Time (FPS)", 250, ImGui::LYImGuiUtils::HistogramContainer::ViewType::Histogram, true, 0.0f, 80.0f);
+        ImGui::ImGuiUpdateListenerBus::Handler::BusConnect();
+
     }
 
     void ROS2SensorComponent::Deactivate()
     {
         AZ::TickBus::Handler::BusDisconnect();
+        ImGui::ImGuiUpdateListenerBus::Handler::BusDisconnect();
     }
 
     void ROS2SensorComponent::Reflect(AZ::ReflectContext* context)
@@ -79,7 +83,7 @@ namespace ROS2
         auto frameTime = frequency == 0 ? 1 : 1 / frequency;
 
         m_timeElapsedSinceLastTick += deltaTime;
-        if (m_timeElapsedSinceLastTick < frameTime)
+        if (m_timeElapsedSinceLastTick - frameTime < 0.5f*deltaTime)
             return;
 
         m_timeElapsedSinceLastTick -= frameTime;
@@ -87,8 +91,32 @@ namespace ROS2
         { // Frequency higher than possible, not catching up, just keep going with each frame.
             m_timeElapsedSinceLastTick = 0.0f;
         }
-
         // Note that sensor frequency can be limited by simulation tick rate (if higher sensor Hz is desired).
+        double currentTime =  TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs());
+        const float deltaTimeOnFreqTick = 1.0f*(currentTime - m_timeElapsedSinceLastFrequencyTick);
+        m_effectiveFps  = 1.f / deltaTimeOnFreqTick;
+        m_deltaTimeHistogram.PushValue(1.0f/deltaTimeOnFreqTick);
+        m_timeElapsedSinceLastFrequencyTick = currentTime;
+        m_effectiveFpsMin = AZStd::min(m_effectiveFpsMin, m_effectiveFps);
+        m_effectiveFpsMax = AZStd::max(m_effectiveFpsMax, m_effectiveFps);
+
         FrequencyTick();
+
     }
+
+    void ROS2SensorComponent::OnImGuiUpdate(){
+        AZStd::string s = AZStd::string::format("Sensor %s [%llu] ", GetEntity()->GetName().c_str(), GetId());
+        ImGui::Begin(s.c_str());
+        ImGui::BulletText("FrameRate : %f / %f", m_effectiveFps, m_sensorConfiguration.m_frequency);
+        ImGui::BulletText("Max/Min : %f / %f", m_effectiveFpsMin, m_effectiveFpsMax);
+        ImGui::SameLine();
+        if (ImGui::Button("Zero")){
+            m_effectiveFpsMin = 300.f;
+            m_effectiveFpsMax = 0.f;
+        }
+
+        m_deltaTimeHistogram.Draw(ImGui::GetColumnWidth(), 100.0f);
+        ImGui::End();
+    }
+
 } // namespace ROS2

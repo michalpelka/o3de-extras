@@ -22,6 +22,8 @@
 #include <PostProcess/PostProcessFeatureProcessor.h>
 
 #include <Atom/RPI.Public/Pass/PassFactory.h>
+#include <AzCore/Time/ITime.h>
+
 
 namespace ROS2
 {
@@ -110,6 +112,11 @@ namespace ROS2
     void CameraSensor::SetupPasses()
     {
         AZ_TracePrintf("CameraSensor", "Initializing pipeline for %s\n", m_cameraSensorDescription.m_cameraName.c_str());
+        const auto & m =m_cameraSensorDescription.m_cameraIntrinsics;
+        AZ_TracePrintf("CameraSensor", "Camera matrix\n");
+        AZ_TracePrintf("CameraSensor", "%f %f %f",m[0],m[1],m[2]);
+        AZ_TracePrintf("CameraSensor", "%f %f %f",m[3],m[4],m[5]);
+        AZ_TracePrintf("CameraSensor", "%f %f %f",m[6],m[7],m[8]);
 
         const AZ::Name viewName = AZ::Name("MainCamera");
         m_view = AZ::RPI::View::CreateView(viewName, AZ::RPI::View::UsageCamera);
@@ -190,10 +197,21 @@ namespace ROS2
         const AZ::Transform& cameraPose,
         const std_msgs::msg::Header& header)
     {
+
+        auto headerMod = header;
+        static int counter =0;
+        counter++;
+        headerMod.stamp.sec = counter;
+        double requestTime = TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs());
         RequestFrame(
             cameraPose,
-            [header, publisher](const AZ::RPI::AttachmentReadback::ReadbackResult& result)
+            [headerMod, publisher, this, requestTime](const AZ::RPI::AttachmentReadback::ReadbackResult& result)
             {
+                {
+                    AZStd::lock_guard<AZStd::mutex>lck(Foo::CameraLogMutex);
+                    Foo::CameraLog <<std::fixed <<
+                        "{\"ts\" : "<<TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs())  << ", \"event\":\"MessagePublicationStart\", \"frame\": " << headerMod.stamp.sec << "}"<< std::endl;
+                }
                 const AZ::RHI::ImageDescriptor& descriptor = result.m_imageDescriptor;
                 const auto format = descriptor.m_format;
                 AZ_Assert(Internal::FormatMappings.contains(format), "Unknown format in result %u", static_cast<uint32_t>(format));
@@ -203,9 +221,24 @@ namespace ROS2
                 message.height = descriptor.m_size.m_height;
                 message.step = message.width * Internal::BitDepth.at(format);
                 message.data = std::vector<uint8_t>(result.m_dataBuffer->data(), result.m_dataBuffer->data() + result.m_dataBuffer->size());
-                message.header = header;
+                message.header = headerMod;
                 publisher->publish(message);
+                AZStd::lock_guard<AZStd::mutex>lck(Foo::CameraLogMutex);
+                double currenTime = TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs());
+                double fps = 1.0/(currenTime - m_cameraSendFps );
+                double timeFromExecutionToSend = currenTime- requestTime;
+                m_cameraSendFps = currenTime;
+                Foo::CameraLog <<std::fixed <<
+                    "{\"ts\" : "<<TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs())  << ", \"event\":\"MessagePublicationDone\", \"frame\": " << headerMod.stamp.sec << ", \"fps\": " << fps << ", \"diff\":"<< timeFromExecutionToSend<< "}"<< std::endl;
+
             });
+        double currenTime = TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs());
+        double fps = 1.0/(currenTime - m_cameraRequestFps);
+        m_cameraRequestFps = currenTime;
+
+        AZStd::lock_guard<AZStd::mutex>lck(Foo::CameraLogMutex);
+        Foo::CameraLog <<std::fixed <<
+            "{\"ts\" : "<<TimeMsToSecondsDouble(AZ::Interface<AZ::ITime>::Get()->GetElapsedTimeMs())  << ", \"event\":\"RequestMessagePublication\", \"frame\": " << headerMod.stamp.sec << ", \"fps\" : "<< fps<<" }"<< std::endl;
     }
 
     CameraDepthSensor::CameraDepthSensor(const CameraSensorDescription& cameraSensorDescription)

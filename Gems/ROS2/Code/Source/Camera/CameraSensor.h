@@ -13,7 +13,7 @@
 #include <rclcpp/publisher.hpp>
 #include <sensor_msgs/msg/image.hpp>
 #include <std_msgs/msg/header.hpp>
-
+#include <ROS2/Sensor/ROS2SensorComponent.h>
 namespace ROS2
 {
 
@@ -42,6 +42,7 @@ namespace ROS2
         AZStd::array<double, 9> MakeCameraIntrinsics() const;
 
         void ValidateParameters() const;
+
     };
 
     //! Class to create camera sensor using Atom renderer
@@ -85,6 +86,9 @@ namespace ROS2
             AZ::Quaternion::CreateFromMatrix3x3(AZ::Matrix3x3::CreateFromRows({ 1, 0, 0 }, { 0, -1, 0 }, { 0, 0, -1 }))) };
         virtual AZStd::string GetPipelineTemplateName() const = 0; //! Returns name of pass template to use in pipeline
         virtual AZStd::string GetPipelineTypeName() const = 0; //! Type of returned data eg Color, Depth, Optical flow
+
+        double m_cameraRequestFps{};
+        double m_cameraSendFps{};
 
     protected:
         //! Read and setup Atom Passes
