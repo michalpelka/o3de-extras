@@ -15,6 +15,7 @@
 #include <HingeJointComponent.h>
 #include <PhysX/Joint/PhysXJointRequestsBus.h>
 #include <VehicleDynamics/Utilities.h>
+#include <ROS2/ROS2GemUtilities.h>
 
 namespace ROS2::VehicleDynamics
 {
@@ -38,6 +39,7 @@ namespace ROS2::VehicleDynamics
     {
         m_config = vehicleConfig;
         m_wheelsData.clear();
+        m_wheelColumns.clear();
     }
 
     void SkidSteeringDriveModel::ApplyState(const VehicleInputs& inputs, AZ::u64 deltaTimeNs)
@@ -99,7 +101,7 @@ namespace ROS2::VehicleDynamics
                     continue;
                 }
                 float normalizedWheelId = -1.f + 2.f * wheelId / (wheelCount - 1);
-                float wheelBase = normalizedWheelId * m_config.m_wheelbase / 2.f;
+                float wheelBase = normalizedWheelId * m_config.m_wheelbase/2.f;
                 AZ_Assert(axle.m_wheelRadius != 0, "axle.m_wheelRadius must be non-zero");
                 float wheelRate = (m_currentLinearVelocity + m_currentAngularVelocity * wheelBase) / axle.m_wheelRadius;
                 PhysX::JointRequestBus::Event(hingePtr->second, &PhysX::JointRequests::SetVelocity, wheelRate);
