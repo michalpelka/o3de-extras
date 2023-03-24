@@ -7,6 +7,13 @@
  */
 #include "SourceAssetsStorage.h"
 #include "RobotImporterUtils.h"
+#include <AzCore/Serialization/Json/JsonUtils.h>
+#include <SceneAPI/SceneCore/Containers/Scene.h>
+#include <SceneAPI/SceneCore/Containers/Utilities/Filters.h>
+#include <SceneAPI/SceneCore/DataTypes/Groups/ISceneNodeGroup.h>
+#include <SceneAPI/SceneCore/Events/AssetImportRequest.h>
+#include <SceneAPI/SceneCore/Events/SceneSerializationBus.h>
+#include <SceneAPI/SceneCore/Utilities/SceneGraphSelector.h>
 
 namespace ROS2::Utils
 {
@@ -31,75 +38,132 @@ namespace ROS2::Utils
         return r;
     }
 
-    AZStd::unordered_map<AZ::Crc32, AvailableAsset> GetInterestingSourceAssetsCRC()
+    AZStd::string GetProductAsset(const AZ::Data::AssetId& assetId , const AZ::TypeId typeId)
     {
-        const AZStd::unordered_set<AZStd::string> kInterestingExtensions{ ".dae", ".stl", ".obj", ".fbx" };
-        constexpr char AzModelExtension[] {".azmodel"} ;
-        AZStd::unordered_map<AZ::Crc32, AvailableAsset> availableAssets;
-
-        // take all meshes in catalog
-        AZ::Data::AssetCatalogRequests::AssetEnumerationCB collectAssetsCb =
-            [&](const AZ::Data::AssetId id, const AZ::Data::AssetInfo& info)
+        AZStd::vector<AZ::Data::AssetInfo> productsAssetInfo;
+        using AssetSysReqBus = AzToolsFramework::AssetSystemRequestBus;
+        bool ok{ false };
+        AssetSysReqBus::BroadcastResult(
+            ok, &AssetSysReqBus::Events::GetAssetsProducedBySourceUUID, assetId.m_guid, productsAssetInfo);
+        if (ok)
         {
-            if (AZ::Data::AssetManager::Instance().GetHandler(info.m_assetType))
+            for (auto& product : productsAssetInfo)
             {
-                if (!info.m_relativePath.ends_with(AzModelExtension))
+                if (product.m_assetType == typeId)
                 {
-                    return;
-                }
-                using AssetSysReqBus = AzToolsFramework::AssetSystemRequestBus;
-                bool pathFound{ false };
-                AZStd::string fullSourcePathStr;
-
-                AssetSysReqBus::BroadcastResult(
-                    pathFound, &AssetSysReqBus::Events::GetFullSourcePathFromRelativeProductPath, info.m_relativePath, fullSourcePathStr);
-                if (!pathFound)
-                {
-                    return;
-                }
-                const AZ::IO::Path fullSourcePath(fullSourcePathStr);
-                const AZStd::string extension = fullSourcePath.Extension().Native();
-
-                if (!kInterestingExtensions.contains(extension))
-                {
-                    return;
-                }
-
-                AZ::Crc32 crc = Utils::GetFileCRC(fullSourcePathStr);
-                AZ_Printf(
-                    "RobotImporterWidget",
-                    "m_relativePath %s %s : %s %llu \n",
-                    info.m_relativePath.c_str(),
-                    info.m_assetId.ToString<AZStd::string>().c_str(),
-                    fullSourcePath.c_str(),
-                    crc);
-
-                AvailableAsset foundAsset;
-                foundAsset.m_sourceAssetRelativePath = info.m_relativePath;
-                foundAsset.m_assetId = info.m_assetId;
-                foundAsset.m_sourceAssetGlobalPath = fullSourcePathStr;
-                foundAsset.m_productAssetRelativePath = info.m_relativePath;
-                auto availableAssetIt = availableAssets.find(crc);
-                if (availableAssetIt != availableAssets.end())
-                {
-                    const AZStd::string stem(fullSourcePath.Stem().Native());
-                    // probably there is already submesh added. Replace only if there is exact name
-                    if (info.m_relativePath.contains(stem + AzModelExtension))
-                    {
-                        availableAssetIt->second = foundAsset;
-                    }
-                }
-                else
-                {
-                    availableAssets.insert({crc, foundAsset});
+                    AZStd::string assetPath;
+                    AZ::Data::AssetCatalogRequestBus::BroadcastResult(
+                        assetPath, &AZ::Data::AssetCatalogRequestBus::Events::GetAssetPathById, product.m_assetId);
+                    return assetPath;
                 }
             }
-        };
-        AZ::Data::AssetCatalogRequestBus::Broadcast(
-            &AZ::Data::AssetCatalogRequestBus::Events::EnumerateAssets, nullptr, collectAssetsCb, nullptr);
+        }
+        return "";
+    }
 
+
+////        if (!assetDatabaseConnection.OpenDatabase())
+////        {
+////            AZ_Warning("GetInterestingSourceAssetsCRC", false, "Cannot open database");
+////        }
+////        AZStd::string productAssetPath;
+////        auto callback = [&](AzToolsFramework::AssetDatabase::ProductDatabaseEntry& entry){
+////            if( entry.m_assetType == AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")) // AZ::RPI::ModelAsset
+////            {
+////                AZ_Printf("getProductAsset", "%s", entry.ToString().c_str());
+////                productAssetPath = entry.m_productName;
+////                return false;
+////            }
+////            return true;
+////        };
+////        assetDatabaseConnection.QueryProductBySourceID( asset.m_sourceID,callback);
+////        return productAssetPath;
+//    }
+    AZStd::string GetModelProductAsset(const AZ::Data::AssetId& assetId)
+    {
+        return GetProductAsset(assetId, AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")); //AZ::RPI::ModelAsset;
+    }
+
+    AZStd::string GetPhysXMeshProductAsset(const AZ::Data::AssetId& assetId)
+    {
+        return GetProductAsset(assetId, AZ::TypeId("{7A2871B9-5EAB-4DE0-A901-B0D2C6920DDB}")); //PhysX::Pipeline::MeshAsset
+    }
+
+
+
+    AZStd::unordered_map<AZ::Crc32, AvailableAsset> GetInterestingSourceAssetsCRC()
+    {
+        // connect to database API
+
+        const AZStd::vector<AZStd::string> kInterestingExtensions{ ".dae", ".stl", ".obj", ".fbx" };
+        AZStd::unordered_map<AZ::Crc32, AvailableAsset> availableAssets;
+
+        AzToolsFramework::AssetDatabase::AssetDatabaseConnection assetDatabaseConnection;
+        if (!assetDatabaseConnection.OpenDatabase())
+        {
+            AZ_Warning("GetInterestingSourceAssetsCRC", false, "Cannot open database");
+        }
+        auto callback = [&availableAssets](AzToolsFramework::AssetDatabase::SourceDatabaseEntry& entry){
+            using AssetSysReqBus = AzToolsFramework::AssetSystemRequestBus;
+            AvailableAsset foundAsset;
+            foundAsset.m_sourceID = entry.m_sourceID;
+            foundAsset.m_sourceGuid = entry.m_sourceGuid;
+
+            using AssetSysReqBus = AzToolsFramework::AssetSystemRequestBus;
+
+            // get source asset info
+            bool sourceAssetFound{ false };
+            AZ::Data::AssetInfo assetInfo;
+            AZStd::string watchFolder;
+            AssetSysReqBus::BroadcastResult(
+                sourceAssetFound, &AssetSysReqBus::Events::GetSourceInfoBySourceUUID, entry.m_sourceGuid, assetInfo, watchFolder);
+            if (!sourceAssetFound)
+            {
+                AZ_Warning("GetInterestingSourceAssetsCRC", false, "Cannot find source asset info for %s", entry.ToString().c_str());
+                return true;
+            }
+            foundAsset.m_assetId = assetInfo.m_assetId;
+
+            const auto fullSourcePath = AZ::IO::Path(watchFolder)/AZ::IO::Path(assetInfo.m_relativePath);
+
+            foundAsset.m_sourceAssetRelativePath = assetInfo.m_relativePath;
+            foundAsset.m_sourceAssetGlobalPath = fullSourcePath.String();
+
+            AZ::Crc32 crc = Utils::GetFileCRC(foundAsset.m_sourceAssetGlobalPath);
+            if (crc == AZ::Crc32(0))
+            {
+                AZ_Warning("GetInterestingSourceAssetsCRC", false, "Zero CRC for source asset %s", foundAsset.m_sourceAssetGlobalPath.c_str());
+                return true;
+            }
+            // Todo Remove in review
+            AZ_Printf("GetInterestingSourceAssetsCRC", "Found asset:");
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_sourceAssetRelativePath  : %s",foundAsset.m_sourceAssetRelativePath.c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_sourceAssetGlobalPath    : %s",foundAsset.m_sourceAssetGlobalPath.c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_productAssetRelativePath : %s",foundAsset.m_productAssetRelativePath.c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_sourceGuid               : %s",foundAsset.m_sourceGuid.ToString<AZStd::string>().c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tproductAsset (Visual)      : %s",GetModelProductAsset(foundAsset.m_assetId).c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tproductAsset (PhysX)       : %s",GetPhysXMeshProductAsset(foundAsset.m_assetId).c_str());
+            AZ_Printf("GetInterestingSourceAssetsCRC", "\tcrc                        : %d",crc);
+
+            auto availableAssetIt = availableAssets.find(crc);
+            if (availableAssetIt != availableAssets.end())
+            {
+                AZ_Warning("GetInterestingSourceAssetsCRC", false, "Asset already in database : %s ",  foundAsset.m_sourceAssetGlobalPath.c_str());
+                AZ_Warning("GetInterestingSourceAssetsCRC", false, "Found asset : %s ", availableAssetIt->second.m_sourceAssetGlobalPath.c_str());
+            }
+            else
+            {
+                availableAssets.insert({crc, foundAsset});
+            }
+            return true;
+        };
+
+        for (auto &extension: kInterestingExtensions){
+            assetDatabaseConnection.QuerySourceLikeSourceName(extension.c_str(), AzToolsFramework::AssetDatabase::AssetDatabaseConnection::LikeType::EndsWith, callback);
+        }
         return availableAssets;
     }
+
 
     UrdfAssetMap FindAssetsForUrdf(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename)
     {
@@ -128,4 +192,105 @@ namespace ROS2::Utils
         return urdfToAsset;
     }
 
+    bool createSceneManifestForPhysxMesh(const AZStd::string sourceAssetPath)
+    {
+        const AZStd::string azMeshPath = sourceAssetPath;
+
+        AZStd::shared_ptr<AZ::SceneAPI::Containers::Scene> scene;
+        AZ::SceneAPI::Events::SceneSerializationBus::BroadcastResult(
+            scene, &AZ::SceneAPI::Events::SceneSerialization::LoadScene, azMeshPath.c_str(), AZ::Uuid::CreateNull(), "");
+        if (!scene)
+        {
+            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid scene: %s", azMeshPath.c_str());
+            return false;
+        }
+
+        AZ::SceneAPI::Containers::SceneManifest& manifest = scene->GetManifest();
+        auto valueStorage = manifest.GetValueStorage();
+        if (valueStorage.empty())
+        {
+            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid value storage: %s", azMeshPath.c_str());
+            return false;
+        }
+
+        auto view = AZ::SceneAPI::Containers::MakeDerivedFilterView<AZ::SceneAPI::DataTypes::ISceneNodeGroup>(valueStorage);
+        if (view.empty())
+        {
+            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid node views: %s", azMeshPath.c_str());
+            return false;
+        }
+
+        // Select all nodes for both visual and collision nodes
+        for (AZ::SceneAPI::DataTypes::ISceneNodeGroup& mg : view)
+        {
+            AZ::SceneAPI::Utilities::SceneGraphSelector::SelectAll(scene->GetGraph(), mg.GetSceneNodeSelectionList());
+        }
+
+        // Update scene with all nodes selected
+        AZ::SceneAPI::Events::ProcessingResultCombiner result;
+        AZ::SceneAPI::Events::AssetImportRequestBus::BroadcastResult(
+            result,
+            &AZ::SceneAPI::Events::AssetImportRequest::UpdateManifest,
+            *scene,
+            AZ::SceneAPI::Events::AssetImportRequest::ManifestAction::Update,
+            AZ::SceneAPI::Events::AssetImportRequest::RequestingApplication::Editor);
+
+        if (result.GetResult() != AZ::SceneAPI::Events::ProcessingResult::Success)
+        {
+            AZ_TracePrintf("createSceneManifestForPhysxMesh", "Scene updated\n");
+            return false;
+        }
+
+        auto assetInfoFilePath = AZ::IO::Path{ azMeshPath };
+        assetInfoFilePath.Native() += ".assetinfo";
+        AZ_Printf("createSceneManifestForPhysxMesh", "Saving collider manifest to %s\n", assetInfoFilePath.c_str());
+        scene->GetManifest().SaveToFile(assetInfoFilePath.c_str());
+
+        // Set export method to convex mesh
+        auto readOutcome = AZ::JsonSerializationUtils::ReadJsonFile(assetInfoFilePath.c_str());
+        if (!readOutcome.IsSuccess())
+        {
+            AZ_Error(
+                "createSceneManifestForPhysxMesh",
+                false,
+                "Could not read %s with %s",
+                assetInfoFilePath.c_str(),
+                readOutcome.GetError().c_str());
+            return false;
+        }
+        rapidjson::Document assetInfoJson = readOutcome.TakeValue();
+        auto manifestObject = assetInfoJson.GetObject();
+        auto valuesIterator = manifestObject.FindMember("values");
+        if (valuesIterator == manifestObject.MemberEnd())
+        {
+            AZ_Error("createSceneManifestForPhysxMesh", false, "Invalid json file: %s (Missing 'values' node)", assetInfoFilePath.c_str());
+            return false;
+        }
+
+        constexpr AZStd::string_view physXMeshGroupType = "{5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B} MeshGroup";
+        auto valuesArray = valuesIterator->value.GetArray();
+        for (auto& value : valuesArray)
+        {
+            auto object = value.GetObject();
+
+            auto physXMeshGroupIterator = object.FindMember("$type");
+            if (AZ::StringFunc::Equal(physXMeshGroupIterator->value.GetString(), physXMeshGroupType))
+            {
+                value.AddMember(rapidjson::StringRef("export method"), rapidjson::StringRef("1"), assetInfoJson.GetAllocator());
+            }
+        }
+
+        auto saveOutcome = AZ::JsonSerializationUtils::WriteJsonFile(assetInfoJson, assetInfoFilePath.c_str());
+        if (!saveOutcome.IsSuccess())
+        {
+            AZ_Error(
+                "createSceneManifestForPhysxMesh",
+                false,
+                "Could not save %s with %s",
+                assetInfoFilePath.c_str(),
+                saveOutcome.GetError().c_str());
+            return false;
+        }
+        return true;
+    }
 } // namespace ROS2::Utils

@@ -15,6 +15,8 @@
 #include <AzCore/std/containers/unordered_map.h>
 #include <AzCore/std/containers/unordered_set.h>
 #include <AzToolsFramework/API/EditorAssetSystemAPI.h>
+#include <AssetDatabase/PathOrUuid.h>
+#include <AssetDatabase/AssetDatabaseConnection.h>
 
 namespace ROS2::Utils
 {
@@ -33,6 +35,13 @@ namespace ROS2::Utils
 
         //! Product asset ID @see AZ::Data::AssetInfo.
         AZ::Data::AssetId m_assetId;
+
+        //! Source ID of source asset
+        AZ::s64 m_sourceID = AzToolsFramework::AssetDatabase::InvalidEntryId;
+
+        //! Source GUID of source asset
+        AZ::Uuid m_sourceGuid = AZ::Uuid::CreateNull();
+
     };
 
     //! The structure contains a mapping between URDF's path to O3DE asset information.
@@ -72,5 +81,22 @@ namespace ROS2::Utils
     //! @param urdFilename - filename of URDF file, used for resolvement
     //! @returns a URDF Asset map where the key is unresolved URDF path to AvailableAsset
     UrdfAssetMap FindAssetsForUrdf(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename);
+
+    //! Helper function that gives products asset id from asset Id.
+    //! @param asset is source asset id
+    //! @param typeId type of product asset
+    AZStd::string GetProductAsset(const AZ::Data::AssetId& assetId, const AZ::TypeId typeId);
+
+    //! Helper function that gives AZ::RPI::ModelAsset product asset id from asset info.
+    //! @param asset is source assetId
+    AZStd::string GetModelProductAsset(const AZ::Data::AssetId& assetId);
+
+    //! Helper function that gives PhysX::Pipeline::MeshAsset product asset id from asset info.
+    //! @param asset is source assetId
+    AZStd::string GetPhysXMeshProductAsset(const AZ::Data::AssetId& assetId);
+
+    //! Creates side-car file (.assetinfo) that configures scene to generate physx Mesh.
+    //! @param sourceAssetPath - global path to source asset
+    bool createSceneManifestForPhysxMesh(const AZStd::string sourceAssetPath);
 
 } // namespace ROS2::Utils

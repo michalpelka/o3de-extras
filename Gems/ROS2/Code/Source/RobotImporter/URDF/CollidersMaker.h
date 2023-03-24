@@ -63,7 +63,7 @@ namespace ROS2
 
         AZStd::thread m_buildThread;
         AZStd::mutex m_buildMutex;
-        AZStd::vector<AZ::IO::Path> m_meshesToBuild;
+        AZStd::vector<AZ::Data::AssetId> m_meshesToBuild;
         AZStd::atomic_bool m_stopBuildFlag;
         AZ::Data::Asset<Physics::MaterialAsset> m_wheelMaterial;
         AZStd::shared_ptr<Utils::UrdfAssetMap> m_urdfAssetsMapping;

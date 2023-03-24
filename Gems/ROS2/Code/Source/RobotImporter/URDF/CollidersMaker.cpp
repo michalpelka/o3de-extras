@@ -33,74 +33,6 @@ namespace ROS2
     namespace Internal
     {
         static const char* CollidersMakerLoggingTag = "CollidersMaker";
-
-        AZStd::optional<AZ::IO::Path> GetMeshProductPathFromSourcePath(const AZ::IO::Path& sourcePath)
-        {
-            AZ_TracePrintf(Internal::CollidersMakerLoggingTag, "GetMeshProductPathFromSourcePath: %s\n", sourcePath.c_str());
-            AZ::Data::AssetInfo assetInfo;
-
-            AZStd::string watchDir;
-            bool assetFound = false;
-            AzToolsFramework::AssetSystemRequestBus::BroadcastResult(
-                assetFound,
-                &AzToolsFramework::AssetSystem::AssetSystemRequest::GetSourceInfoBySourcePath,
-                sourcePath.c_str(),
-                assetInfo,
-                watchDir);
-
-            if (!assetFound)
-            {
-                AZ_Error(Internal::CollidersMakerLoggingTag, false, "Could not find asset %s", sourcePath.c_str());
-                return {};
-            }
-
-            AZStd::vector<AZ::Data::AssetInfo> productsAssetInfo;
-
-            bool productsFound = false;
-            AzToolsFramework::AssetSystemRequestBus::BroadcastResult(
-                productsFound,
-                &AzToolsFramework::AssetSystem::AssetSystemRequest::GetAssetsProducedBySourceUUID,
-                assetInfo.m_assetId.m_guid,
-                productsAssetInfo);
-
-            if (!productsFound)
-            {
-                AZ_Error(Internal::CollidersMakerLoggingTag, false, "Could not find products for asset %s", sourcePath.c_str());
-                return {};
-            }
-
-            AZStd::vector<AZ::IO::Path> productsPaths;
-            AZStd::transform(
-                productsAssetInfo.cbegin(),
-                productsAssetInfo.cend(),
-                AZStd::back_inserter(productsPaths),
-                [](const AZ::Data::AssetInfo& assetInfo)
-                {
-                    AZStd::string assetPath;
-                    AZ::Data::AssetCatalogRequestBus::BroadcastResult(
-                        assetPath, &AZ::Data::AssetCatalogRequestBus::Events::GetAssetPathById, assetInfo.m_assetId);
-                    return AZ::IO::Path(assetPath);
-                });
-
-            AZStd::vector<AZ::IO::Path> pxMeshesPaths;
-            AZStd::remove_copy_if(
-                productsPaths.cbegin(),
-                productsPaths.cend(),
-                AZStd::back_inserter(pxMeshesPaths),
-                [](const AZ::IO::Path& path)
-                {
-                    return !(path.Extension() == ".pxmesh");
-                });
-
-            if (pxMeshesPaths.empty())
-            {
-                return {};
-            }
-
-            AZ_Assert(pxMeshesPaths.size() == 1, "Currently only one pxmesh for each model source is supported by robot importer");
-
-            return pxMeshesPaths.front();
-        }
     } // namespace Internal
 
     CollidersMaker::CollidersMaker(const AZStd::shared_ptr<Utils::UrdfAssetMap>& urdfAssetsMapping)
@@ -238,16 +170,6 @@ namespace ROS2
             AZ_Printf(Internal::CollidersMakerLoggingTag, "Saving collider manifest to %s\n", assetInfoFilePath.c_str());
             scene->GetManifest().SaveToFile(assetInfoFilePath.c_str());
 
-            bool assetFound = false;
-            AZ::Data::AssetInfo assetInfo;
-            AZStd::string watchDir;
-            AzToolsFramework::AssetSystemRequestBus::BroadcastResult(
-                assetFound,
-                &AzToolsFramework::AssetSystem::AssetSystemRequest::GetSourceInfoBySourcePath,
-                azMeshPath.c_str(),
-                assetInfo,
-                watchDir);
-
             // Set export method to convex mesh
             auto readOutcome = AZ::JsonSerializationUtils::ReadJsonFile(assetInfoFilePath.c_str());
             if (!readOutcome.IsSuccess())
@@ -295,12 +217,8 @@ namespace ROS2
                 return;
             }
 
-            // Add asset to expected assets list
-            if (assetFound)
-            {
-                AZStd::lock_guard lock{ m_buildMutex };
-                m_meshesToBuild.push_back(AZ::IO::Path(assetInfo.m_relativePath));
-            }
+            AZStd::lock_guard lock{ m_buildMutex };
+            m_meshesToBuild.push_back(asset->m_assetId);
         }
     }
 
@@ -374,33 +292,29 @@ namespace ROS2
             {
                 return;
             }
-            // Get asset path for a given model path
-            const auto azMeshPath = AZ::IO::Path(asset->m_sourceAssetGlobalPath);
 
-            AZStd::optional<AZ::IO::Path> pxmodelPath = Internal::GetMeshProductPathFromSourcePath(azMeshPath);
-            if (!pxmodelPath)
+            AZStd::string pxmodelPath = Utils::GetPhysXMeshProductAsset(asset->m_assetId);
+            if (pxmodelPath.empty())
             {
-                AZ_Error(Internal::CollidersMakerLoggingTag, false, "Could not find pxmodel for %s", azMeshPath.c_str());
+                AZ_Error(Internal::CollidersMakerLoggingTag, false, "Could not find pxmodel for %s", asset->m_sourceAssetGlobalPath.c_str());
                 entity->Deactivate();
                 return;
             }
-
+            AZ_Printf(Internal::CollidersMakerLoggingTag, "pxmodelPath  %s\n", pxmodelPath.c_str());
             // Get asset product id (pxmesh)
             AZ::Data::AssetId assetId;
-            AZ::Data::AssetType assetType = AZ::AzTypeInfo<PhysX::Pipeline::MeshAsset>::Uuid();
+            const AZ::Data::AssetType PhysxMeshAssetType = PhysX::Pipeline::MeshAsset::TYPEINFO_Uuid();
             AZ::Data::AssetCatalogRequestBus::BroadcastResult(
-                assetId, &AZ::Data::AssetCatalogRequests::GetAssetIdByPath, pxmodelPath->c_str(), assetType, false);
+                assetId, &AZ::Data::AssetCatalogRequests::GetAssetIdByPath, pxmodelPath.c_str(), PhysxMeshAssetType, true);
             AZ_Printf(Internal::CollidersMakerLoggingTag, "Collider %s has assetId %s\n", entityId.ToString().c_str(), assetId.ToString<AZStd::string>().c_str());
 
             Physics::PhysicsAssetShapeConfiguration shapeConfiguration;
             shapeConfiguration.m_useMaterialsFromAsset = false;
             if (assetId.IsValid())
             {
+                auto mesh = AZ::Data::Asset<PhysX::Pipeline::MeshAsset>(assetId, PhysxMeshAssetType);
+                shapeConfiguration.m_asset = mesh;
                 entity->CreateComponent<PhysX::EditorMeshColliderComponent>(colliderConfig, shapeConfiguration);
-                entity->Activate();
-                // Insert pxmesh into the collider component
-                PhysX::MeshColliderComponentRequestsBus::Event(entityId, &PhysX::MeshColliderComponentRequests::SetMeshAsset, assetId);
-                entity->Deactivate();
             }
             return;
         }
@@ -467,9 +381,9 @@ namespace ROS2
                 {
                     {
                         AZStd::lock_guard lock{ m_buildMutex };
-                        auto eraseFoundMesh = [](const AZ::IO::Path& meshPath)
+                        auto eraseFoundMesh = [](const AZ::Data::AssetId& assetId)
                         {
-                            return Internal::GetMeshProductPathFromSourcePath(meshPath).has_value();
+                            return !(Utils::GetPhysXMeshProductAsset(assetId).empty());
                         };
                         AZStd::erase_if(m_meshesToBuild, AZStd::move(eraseFoundMesh));
                     }

@@ -12,6 +12,7 @@
 #include <AzToolsFramework/API/ViewPaneOptions.h>
 #if !defined(Q_MOC_RUN)
 #include <QWindow>
+#include <QBuffer>
 #endif
 
 namespace ROS2
@@ -58,7 +59,16 @@ namespace ROS2
         options.isDisabledInSimMode = true;
         options.isDeletable = true;
 
-        options.toolbarIcon = ":/ROS2/ROS_import_icon.svg";
+        options.toolbarIcon = ":/ros/import.svg";
+       [[maybe_unused]] auto  qicon = QIcon(":/ros/import.svg");
+       auto size= qicon.isNull();
+       AZ_Printf("NotifyRegisterViews", "QIcon is empty : %d", size );
+       QByteArray bytes;
+       QBuffer buffer(&bytes);
+       buffer.open(QIODevice::WriteOnly);
+       qicon.pixmap(100,100).save(&buffer, "PNG"); // writes pixmap into bytes in PNG format
+       AZ_Printf("NotifyRegisterViews", "buffer size %d", buffer.size() );
+
         AzToolsFramework::RegisterViewPane<RobotImporterWidget>("Robot Importer", "ROS2", options);
     }
 } // namespace ROS2

@@ -26,15 +26,22 @@ namespace ROS2
     public:
         explicit CheckAssetPage(QWizard* parent);
         void ReportAsset(
-            const QString& urdfPath, const QString& type, const QString& assetSourcePath, const AZ::Crc32& crc32, const QString& tooltip);
+            const QString& urdfPath,
+            const QString& type,
+            const QString& assetSourcePath,
+            const AZ::Crc32& crc32,
+            const QString& resolvedUrdfPath,
+            const QString& productAsset);
         void ClearAssetsList();
 
         bool isComplete() const override;
-
+    Q_SIGNALS:
+        void UserRediscoverRequest();
     private:
         bool m_success;
         QTableWidget* m_table {};
         QTableWidgetItem* createCell(bool isOk, const QString& text);
+        QPushButton* m_reload {};
         unsigned int m_missingCount;
         void SetTitle();
     };

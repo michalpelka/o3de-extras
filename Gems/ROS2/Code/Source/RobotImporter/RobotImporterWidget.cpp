@@ -42,6 +42,8 @@ namespace ROS2
         connect(m_prefabMakerPage, &QWizardPage::completeChanged, this, &RobotImporterWidget::OnUrdfCreated);
         connect(m_prefabMakerPage, &PrefabMakerPage::onCreateButtonPressed, this, &RobotImporterWidget::onCreateButtonPressed);
         connect(this, &RobotImporterWidget::SignalFinalizeURDFCreation, this, &RobotImporterWidget::FinalizeURDFCreation);
+        connect(m_assetPage, &CheckAssetPage::UserRediscoverRequest, this, &RobotImporterWidget::FillAssetPage);
+
         connect(
             this,
             &QWizard::customButtonClicked,
@@ -175,8 +177,22 @@ namespace ROS2
         m_assetPage->ClearAssetsList();
         if (m_parsedUrdf)
         {
-            m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String()));
             auto collidersNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), false, true);
+            m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String()));
+
+            for (const AZStd::string& meshPath : m_meshNames)
+            {
+                if (m_urdfAssetsMapping->contains(meshPath))
+                {
+                    const auto& asset = m_urdfAssetsMapping->at(meshPath);
+                    if (collidersNames.contains(meshPath))
+                    {
+                        // create source assets info for colliders
+                        Utils::createSceneManifestForPhysxMesh(asset.m_availableAssetInfo.m_sourceAssetGlobalPath);
+                    }
+                }
+            }
+
             auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
             for (const AZStd::string& meshPath : m_meshNames)
             {
@@ -187,6 +203,7 @@ namespace ROS2
                 {
                     QString type = kNotFound;
                     QString sourcePath = kNotFound;
+                    QString productAssetText;
                     auto crc = AZ::Crc32();
                     QString tooltip = kNotFound;
                     bool visual = visualNames.contains(meshPath);
@@ -207,18 +224,42 @@ namespace ROS2
                     if (m_urdfAssetsMapping->contains(meshPath))
                     {
                         const auto& asset = m_urdfAssetsMapping->at(meshPath);
-                        const AZStd::string& productPath = asset.m_availableAssetInfo.m_productAssetRelativePath;
+                        const AZStd::string& sourcePathAz = asset.m_availableAssetInfo.m_sourceAssetRelativePath;
                         const AZStd::string& resolvedPath = asset.m_resolvedUrdfPath.data();
 
-                        sourcePath = QString::fromUtf8(productPath.data(), productPath.size());
+                        sourcePath = QString::fromUtf8(sourcePathAz.data(), sourcePathAz.size());
                         crc = asset.m_urdfFileCRC;
                         tooltip = QString::fromUtf8(resolvedPath.data(), resolvedPath.size());
+                        if (visual)
+                        {
+                            const AZStd::string productRelPath = Utils::GetModelProductAsset(asset.m_availableAssetInfo.m_assetId);
+                            if (!productRelPath.empty())
+                            {
+                                productAssetText += tr("Visual : ") + QString::fromUtf8(productRelPath.data(), productRelPath.size())+"; ";
+                            }
+                            else
+                            {
+                                productAssetText += tr("Visual mesh product is not available; ");
+                            }
+                        }
+                        if (collider)
+                        {
+                            const AZStd::string productRelPath = Utils::GetPhysXMeshProductAsset(asset.m_availableAssetInfo.m_assetId);
+                            if (!productRelPath.empty())
+                            {
+                                productAssetText += tr("Collider mesh: ") + QString::fromUtf8(productRelPath.data(), productRelPath.size()) +"; ";
+                            }
+                            else
+                            {
+                                productAssetText += tr("Collider mesh product is not available; ");
+                            }
+                        }
                     }
-                    m_assetPage->ReportAsset(meshPathqs, type, sourcePath, crc, tooltip);
+                    m_assetPage->ReportAsset(meshPathqs, type, sourcePath, crc, tooltip, productAssetText);
                 }
                 else
                 {
-                    m_assetPage->ReportAsset(meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound);
+                    m_assetPage->ReportAsset(meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
                 };
             }
         }
