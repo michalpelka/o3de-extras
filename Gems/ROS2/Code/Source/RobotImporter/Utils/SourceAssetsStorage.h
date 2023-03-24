@@ -7,6 +7,8 @@
  */
 #pragma once
 
+#include <AssetDatabase/AssetDatabaseConnection.h>
+#include <AssetDatabase/PathOrUuid.h>
 #include <AzCore/Asset/AssetCommon.h>
 #include <AzCore/Asset/AssetManager.h>
 #include <AzCore/Asset/AssetManagerBus.h>
@@ -31,8 +33,8 @@ namespace ROS2::Utils
         //! Relative path to source asset eg `foo_robot/meshes/bar_link.azmodel`.
         AZStd::string m_productAssetRelativePath;
 
-        //! Product asset ID @see AZ::Data::AssetInfo.
-        AZ::Data::AssetId m_assetId;
+        //! Source GUID of source asset
+        AZ::Uuid m_sourceGuid = AZ::Uuid::CreateNull();
     };
 
     //! The structure contains a mapping between URDF's path to O3DE asset information.
@@ -72,5 +74,37 @@ namespace ROS2::Utils
     //! @param urdFilename - filename of URDF file, used for resolvement
     //! @returns a URDF Asset map where the key is unresolved URDF path to AvailableAsset
     UrdfAssetMap FindAssetsForUrdf(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename);
+
+    //! Helper function that gives products asset id from asset Id.
+    //! @param sourceAssetUUID is source source asset GUID
+    //! @param typeId type of product asset
+    AZStd::string GetProductAsset(const AZ::Uuid& sourceAssetUUID, const AZ::TypeId typeId);
+
+    //! Helper function that gives AZ::RPI::ModelAsset product asset GUID from asset info.
+    //! @param sourceAssetUUID is source source asset GUID
+    AZStd::string GetModelProductAsset(const AZ::Uuid& sourceAssetUUID);
+
+    //! Helper function that gives PhysX::Pipeline::MeshAsset product asset GUID from asset info.
+    //! @param sourceAssetUUID is source source asset GUID
+    AZStd::string GetPhysXMeshProductAsset(const AZ::Uuid& sourceAssetUUID);
+
+    //! Creates side-car file (.assetinfo) that configures scene to generate physx Mesh.
+    //! @param sourceAssetPath - global path to source asset
+    bool createSceneManifest(const AZStd::string sourceAssetPath, bool collider, bool visual);
+
+    //! Resolves urdf pathes, copies assets from filesystem to prepared directory and creates assetinfos.
+    //! It also creates urdf UrdfAssetMap.
+    //! @param meshesFilenames - files to copy (as unresolved urdf pathes)
+    //! @param urdFilename - urdfFileName
+    //! @param colliders - files to create collider assetinfo (as unresolved urdf pathes)
+    //! @param visuals - files to create visual assetinfo (as unresolved urdf pathes)
+    //! @param fileIO - instance to fileIO class, exposed for testability
+    //! @returns absolute paths to copied files
+    UrdfAssetMap CopyAssetForURDFAndCreateAssetMap(
+        const AZStd::unordered_set<AZStd::string>& meshesFilenames,
+        const AZStd::string& urdFilename,
+        const AZStd::unordered_set<AZStd::string>& colliders,
+        const AZStd::unordered_set<AZStd::string>& visual,
+        AZ::IO::FileIOBase* fileIO = AZ::IO::FileIOBase::GetInstance());
 
 } // namespace ROS2::Utils

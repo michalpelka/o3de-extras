@@ -72,6 +72,9 @@ namespace ROS2
         AZ::IO::Path m_urdfPath;
         urdf::ModelInterfaceSharedPtr m_parsedUrdf;
 
+        //! User's choice to copy meshes during urdf import
+        bool m_importAssetWithUrdf{ false };
+
         /// mapping from urdf path to asset source
         AZStd::shared_ptr<Utils::UrdfAssetMap> m_urdfAssetsMapping;
         AZStd::unique_ptr<URDFPrefabMaker> m_prefabMaker;

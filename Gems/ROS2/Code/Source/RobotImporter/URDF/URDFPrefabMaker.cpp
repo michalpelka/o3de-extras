@@ -39,17 +39,6 @@ namespace ROS2
         AZ_Assert(m_model, "Model is nullptr");
     }
 
-    void URDFPrefabMaker::LoadURDF(BuildReadyCallback buildReadyCb)
-    {
-        m_notifyBuildReadyCb = buildReadyCb;
-
-        // Request the build of collider meshes by constructing .assetinfo files.
-        BuildAssetsForLink(m_model->root_link_);
-
-        // Spins thread that waits for all collider meshes to be ready. 
-        m_collidersMaker.ProcessMeshes(buildReadyCb);
-    }
-
     void URDFPrefabMaker::BuildAssetsForLink(urdf::LinkSharedPtr link)
     {
         m_collidersMaker.BuildColliders(link);
