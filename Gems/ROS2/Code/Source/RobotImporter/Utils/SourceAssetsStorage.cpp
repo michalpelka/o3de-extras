@@ -192,7 +192,7 @@ namespace ROS2::Utils
         return urdfToAsset;
     }
 
-    bool createSceneManifestForPhysxMesh(const AZStd::string sourceAssetPath)
+    bool createSceneManifest(const AZStd::string sourceAssetPath, bool collider, bool visual)
     {
         const AZStd::string azMeshPath = sourceAssetPath;
 
@@ -201,7 +201,7 @@ namespace ROS2::Utils
             scene, &AZ::SceneAPI::Events::SceneSerialization::LoadScene, azMeshPath.c_str(), AZ::Uuid::CreateNull(), "");
         if (!scene)
         {
-            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid scene: %s", azMeshPath.c_str());
+            AZ_Error("createSceneManifest", false, "Error loading collider. Invalid scene: %s", azMeshPath.c_str());
             return false;
         }
 
@@ -209,22 +209,48 @@ namespace ROS2::Utils
         auto valueStorage = manifest.GetValueStorage();
         if (valueStorage.empty())
         {
-            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid value storage: %s", azMeshPath.c_str());
+            AZ_Error("createSceneManifest", false, "Error loading collider. Invalid value storage: %s", azMeshPath.c_str());
             return false;
+        }
+
+        //disable procedural prefab generation
+        AZStd::vector<AZStd::shared_ptr<AZ::SceneAPI::DataTypes::IManifestObject>> toDelete;
+        for (size_t i =0; i < manifest.GetEntryCount(); i++)
+        {
+            AZStd::shared_ptr<AZ::SceneAPI::DataTypes::IManifestObject> obj = manifest.GetValue(i);
+            if (obj->RTTI_IsTypeOf(AZ::TypeId("99FE3C6F-5B55-4D8B-8013-2708010EC715"))) // PrefabBuilder/PrefabGroup/PrefabGroup
+            {
+                toDelete.push_back(obj);
+            }
+            if (!visual && obj->RTTI_IsTypeOf(AZ::TypeId("07B356B7-3635-40B5-878A-FAC4EFD5AD86"))) // SceneAPI/SceneData/Groups/MeshGroup
+            {
+                toDelete.push_back(obj);
+            }
+            if (!collider&&obj->RTTI_IsTypeOf(AZ::TypeId("5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B"))) // PhysX/Code/Source/Pipeline/MeshGroup
+            {
+                toDelete.push_back(obj);
+            }
+
+        }
+        for (auto obj : toDelete)
+        {
+            AZ_Printf("createSceneManifest", "Deleting %s", obj->RTTI_GetType().ToString<AZStd::string>().c_str());
+            manifest.RemoveEntry(obj);
         }
 
         auto view = AZ::SceneAPI::Containers::MakeDerivedFilterView<AZ::SceneAPI::DataTypes::ISceneNodeGroup>(valueStorage);
         if (view.empty())
         {
-            AZ_Error("createSceneManifestForPhysxMesh", false, "Error loading collider. Invalid node views: %s", azMeshPath.c_str());
+            AZ_Error("createSceneManifest", false, "Error loading collider. Invalid node views: %s", azMeshPath.c_str());
             return false;
         }
 
-        // Select all nodes for both visual and collision nodes
         for (AZ::SceneAPI::DataTypes::ISceneNodeGroup& mg : view)
         {
+            AZ_Printf("createSceneManifest", "aaa : %s %s" ,mg.GetName().c_str(), mg.RTTI_GetType().ToString<AZStd::string>().c_str());
             AZ::SceneAPI::Utilities::SceneGraphSelector::SelectAll(scene->GetGraph(), mg.GetSceneNodeSelectionList());
         }
+
 
         // Update scene with all nodes selected
         AZ::SceneAPI::Events::ProcessingResultCombiner result;
@@ -237,59 +263,62 @@ namespace ROS2::Utils
 
         if (result.GetResult() != AZ::SceneAPI::Events::ProcessingResult::Success)
         {
-            AZ_TracePrintf("createSceneManifestForPhysxMesh", "Scene updated\n");
+            AZ_TracePrintf("createSceneManifest", "Scene updated\n");
             return false;
         }
-
         auto assetInfoFilePath = AZ::IO::Path{ azMeshPath };
         assetInfoFilePath.Native() += ".assetinfo";
-        AZ_Printf("createSceneManifestForPhysxMesh", "Saving collider manifest to %s\n", assetInfoFilePath.c_str());
         scene->GetManifest().SaveToFile(assetInfoFilePath.c_str());
 
-        // Set export method to convex mesh
-        auto readOutcome = AZ::JsonSerializationUtils::ReadJsonFile(assetInfoFilePath.c_str());
-        if (!readOutcome.IsSuccess())
+        AZ_Printf("createSceneManifest", "Saving scene manifest to %s\n", assetInfoFilePath.c_str());
+        if (collider)
         {
-            AZ_Error(
-                "createSceneManifestForPhysxMesh",
-                false,
-                "Could not read %s with %s",
-                assetInfoFilePath.c_str(),
-                readOutcome.GetError().c_str());
-            return false;
-        }
-        rapidjson::Document assetInfoJson = readOutcome.TakeValue();
-        auto manifestObject = assetInfoJson.GetObject();
-        auto valuesIterator = manifestObject.FindMember("values");
-        if (valuesIterator == manifestObject.MemberEnd())
-        {
-            AZ_Error("createSceneManifestForPhysxMesh", false, "Invalid json file: %s (Missing 'values' node)", assetInfoFilePath.c_str());
-            return false;
-        }
-
-        constexpr AZStd::string_view physXMeshGroupType = "{5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B} MeshGroup";
-        auto valuesArray = valuesIterator->value.GetArray();
-        for (auto& value : valuesArray)
-        {
-            auto object = value.GetObject();
-
-            auto physXMeshGroupIterator = object.FindMember("$type");
-            if (AZ::StringFunc::Equal(physXMeshGroupIterator->value.GetString(), physXMeshGroupType))
+            // Set export method to convex mesh
+            auto readOutcome = AZ::JsonSerializationUtils::ReadJsonFile(assetInfoFilePath.c_str());
+            if (!readOutcome.IsSuccess())
             {
-                value.AddMember(rapidjson::StringRef("export method"), rapidjson::StringRef("1"), assetInfoJson.GetAllocator());
+                AZ_Error(
+                    "createSceneManifest",
+                    false,
+                    "Could not read %s with %s",
+                    assetInfoFilePath.c_str(),
+                    readOutcome.GetError().c_str());
+                return false;
             }
-        }
+            rapidjson::Document assetInfoJson = readOutcome.TakeValue();
+            auto manifestObject = assetInfoJson.GetObject();
+            auto valuesIterator = manifestObject.FindMember("values");
+            if (valuesIterator == manifestObject.MemberEnd())
+            {
+                AZ_Error(
+                    "createSceneManifest", false, "Invalid json file: %s (Missing 'values' node)", assetInfoFilePath.c_str());
+                return false;
+            }
 
-        auto saveOutcome = AZ::JsonSerializationUtils::WriteJsonFile(assetInfoJson, assetInfoFilePath.c_str());
-        if (!saveOutcome.IsSuccess())
-        {
-            AZ_Error(
-                "createSceneManifestForPhysxMesh",
-                false,
-                "Could not save %s with %s",
-                assetInfoFilePath.c_str(),
-                saveOutcome.GetError().c_str());
-            return false;
+            constexpr AZStd::string_view physXMeshGroupType = "{5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B} MeshGroup";
+            auto valuesArray = valuesIterator->value.GetArray();
+            for (auto& value : valuesArray)
+            {
+                auto object = value.GetObject();
+
+                auto physXMeshGroupIterator = object.FindMember("$type");
+                if (AZ::StringFunc::Equal(physXMeshGroupIterator->value.GetString(), physXMeshGroupType))
+                {
+                    value.AddMember(rapidjson::StringRef("export method"), rapidjson::StringRef("1"), assetInfoJson.GetAllocator());
+                }
+            }
+
+            auto saveOutcome = AZ::JsonSerializationUtils::WriteJsonFile(assetInfoJson, assetInfoFilePath.c_str());
+            if (!saveOutcome.IsSuccess())
+            {
+                AZ_Error(
+                    "createSceneManifest",
+                    false,
+                    "Could not save %s with %s",
+                    assetInfoFilePath.c_str(),
+                    saveOutcome.GetError().c_str());
+                return false;
+            }
         }
         return true;
     }

@@ -178,6 +178,7 @@ namespace ROS2
         if (m_parsedUrdf)
         {
             auto collidersNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), false, true);
+            auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
             m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String()));
 
             for (const AZStd::string& meshPath : m_meshNames)
@@ -185,15 +186,13 @@ namespace ROS2
                 if (m_urdfAssetsMapping->contains(meshPath))
                 {
                     const auto& asset = m_urdfAssetsMapping->at(meshPath);
-                    if (collidersNames.contains(meshPath))
-                    {
-                        // create source assets info for colliders
-                        Utils::createSceneManifestForPhysxMesh(asset.m_availableAssetInfo.m_sourceAssetGlobalPath);
-                    }
+                    bool visual = visualNames.contains(meshPath);
+                    bool collider = collidersNames.contains(meshPath);
+                    Utils::createSceneManifest(asset.m_availableAssetInfo.m_sourceAssetGlobalPath, collider, visual);
                 }
             }
 
-            auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
+
             for (const AZStd::string& meshPath : m_meshNames)
             {
                 const QString meshPathqs = QString::fromUtf8(meshPath.data(), meshPath.size());

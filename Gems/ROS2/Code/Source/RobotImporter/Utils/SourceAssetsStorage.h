@@ -97,6 +97,6 @@ namespace ROS2::Utils
 
     //! Creates side-car file (.assetinfo) that configures scene to generate physx Mesh.
     //! @param sourceAssetPath - global path to source asset
-    bool createSceneManifestForPhysxMesh(const AZStd::string sourceAssetPath);
+    bool createSceneManifest(const AZStd::string sourceAssetPath, bool collider, bool visual);
 
 } // namespace ROS2::Utils
