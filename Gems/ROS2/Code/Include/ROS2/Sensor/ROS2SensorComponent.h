@@ -38,17 +38,25 @@ namespace ROS2
         static void GetRequiredServices(AZ::ComponentDescriptor::DependencyArrayType& required);
 
     protected:
-        //! Check if execution deadline has arrived.
-        //! This function needs to be called every loop's iteration (eg TickBus::Handler::OnTick).
-        //! @param deltaTime time elapsed from the last call in seconds.
-        //! @param expectedLoopTime the expected time to loop call in seconds.
-        //! @returns if measurement should be done/published.
-        bool IsPublicationDeadline(float deltaTime,  float  expectedLoopTime);
-
         AZStd::string GetNamespace() const; //!< Get a complete namespace for this sensor topics and frame ids.
         AZStd::string GetFrameID() const; //!< Returns this sensor frame ID. The ID contains namespace.
 
         SensorConfiguration m_sensorConfiguration;
+
+        //! Check if execution deadline has arrived.
+        //! This function needs to be called every loop's iteration (eg TickBus::Handler::OnTick).
+        //! @param expectedLoopTime the expected time to loop call in seconds.
+        //! @returns if measurement should be done/published.
+        bool IsPublicationDeadline(float expectedLoopTime);
+
+        //! Virtual function that setup refresh loop for the sensor.
+        //! Default implementation is calling \ref FrequencyTick periodically in  AZ::TickBus::Handler::OnTick.
+        //! This function can be overridden to subscribe to higher frequency loops or to spawn sensor threads.
+        virtual void SetupRefreshLoop();
+
+        //! Executes the sensor action (acquire data -> publish) according to frequency.
+        //! Override to implement a specific sensor behavior.
+        virtual void FrequencyTick(){};
 
     private:
         //! Visualise sensor operation.
@@ -58,5 +66,9 @@ namespace ROS2
 
         //! The number of ticks that are expected to pass to trigger next measurement.
         AZ::s32 m_tickCountDown{ 0 };
+
+        //! Optional callback that will be called in overridden onTick method.
+        //! Used in default implementation of \ref SetupRefreshLoop
+        AZStd::function<void()> m_onTickCall;
     };
 } // namespace ROS2

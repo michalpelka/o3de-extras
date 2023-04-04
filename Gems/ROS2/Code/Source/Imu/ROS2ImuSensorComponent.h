@@ -29,7 +29,6 @@ namespace ROS2
         ~ROS2ImuSensorComponent() = default;
         static void GetRequiredServices(AZ::ComponentDescriptor::DependencyArrayType& required);
         static void Reflect(AZ::ReflectContext* context);
-
         //////////////////////////////////////////////////////////////////////////
         // Component overrides
         void Activate() override;
@@ -37,14 +36,26 @@ namespace ROS2
         //////////////////////////////////////////////////////////////////////////
 
     private:
+        //! Length of filter that removes numerical noise
         int m_filterSize{ 10 };
+
+        //! Include gravity acceleration
+        bool m_includeGravity {true};
+
+        //! Measure also absolute rotation
+        bool m_absoluteRotation {true};
+
         std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::Imu>> m_imuPublisher;
         sensor_msgs::msg::Imu m_imuMsg;
         AZ::Vector3 m_previousLinearVelocity = AZ::Vector3::CreateZero();
-        AzPhysics::SceneEvents::OnSceneActiveSimulatedBodiesEvent::Handler m_simulatedBodiesEventHandler;
+
+        AzPhysics::SceneEvents::OnSceneSimulationFinishHandler m_onSceneSimulationEvent;
         AzPhysics::SimulatedBodyHandle m_bodyHandle = AzPhysics::InvalidSimulatedBodyHandle;
         AZ::Vector3 m_acceleration{ 0 };
-        AZStd::deque<AZ::Vector3> m_filter;
-        double m_time = 0;
+        AZStd::deque<AZ::Vector3> m_filterAcceleration;
+        AZStd::deque<AZ::Vector3> m_filterAngularVelocity;
+    protected:
+        // ROS2SensorComponent overrides ...
+        void SetupRefreshLoop() override;
     };
 } // namespace ROS2

@@ -51,7 +51,6 @@ namespace ROS2
                   LidarRegistrarSystemComponent::CreateDescriptor(),
                   ROS2RobotImporterSystemComponent::CreateDescriptor(),
                   ROS2SensorComponent::CreateDescriptor(),
-                  ROS2SensorTickableComponent::CreateDescriptor(),
                   ROS2ImuSensorComponent::CreateDescriptor(),
                   ROS2GNSSSensorComponent::CreateDescriptor(),
                   ROS2LidarSensorComponent::CreateDescriptor(),
