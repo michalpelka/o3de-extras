@@ -35,13 +35,15 @@ namespace ROS2
         //////////////////////////////////////////////////////////////////////////
 
     private:
-
         std::shared_ptr<rclcpp::Publisher<nav_msgs::msg::Odometry>> m_odometryPublisher;
         nav_msgs::msg::Odometry m_odometryMsg;
         AZ::Vector3 m_robotPose {0};
         AZ::Quaternion m_robotRotation {0,0,0,1};
-        AzPhysics::SceneEvents::OnSceneActiveSimulatedBodiesEvent::Handler m_onSceneActiveSimulatedBodiesEvent;
+        AzPhysics::SceneEvents::OnSceneSimulationFinishHandler m_onSceneSimulationEvent;
         AzPhysics::RigidBody* m_rigidBodyPtr{ nullptr };
         AZ::Transform m_initialTransform;
+    protected:
+        // ROS2SensorComponent overrides ...
+        void SetupRefreshLoop() override;
     };
 } // namespace ROS2

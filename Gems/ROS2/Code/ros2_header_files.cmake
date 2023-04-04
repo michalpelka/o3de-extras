@@ -5,6 +5,7 @@
 
 set(FILES
         Include/ROS2/Clock/SimulationClock.h
+        Include/ROS2/Clock/PhysicallyStableClock.h
         Include/ROS2/Frame/NamespaceConfiguration.h
         Include/ROS2/Frame/ROS2FrameComponent.h
         Include/ROS2/Frame/ROS2Transform.h
@@ -18,7 +19,6 @@ set(FILES
         Include/ROS2/ROS2Bus.h
         Include/ROS2/ROS2GemUtilities.h
         Include/ROS2/Sensor/ROS2SensorComponent.h
-        Include/ROS2/Sensor/ROS2SensorTickableComponent.h
         Include/ROS2/Sensor/SensorConfiguration.h
         Include/ROS2/Spawner/SpawnerBus.h
         Include/ROS2/Utilities/Controllers/PidConfiguration.h

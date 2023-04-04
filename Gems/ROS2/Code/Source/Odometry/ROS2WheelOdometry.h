@@ -40,6 +40,10 @@ namespace ROS2
        float m_gtWeightLinear {0.f};
        float m_gtWeightAngular {0.f};
        AzPhysics::RigidBody* m_rigidBodyPtr{ nullptr };
-       AzPhysics::SceneEvents::OnSceneActiveSimulatedBodiesEvent::Handler m_onSceneActiveSimulatedBodiesEvent;
+       AzPhysics::SceneEvents::OnSceneSimulationFinishHandler m_onSceneSimulationEvent;
+
+   protected:
+       // ROS2SensorComponent overrides ...
+       void SetupRefreshLoop() override;
    };
 } // namespace ROS2
