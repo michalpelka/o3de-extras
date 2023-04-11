@@ -5,6 +5,7 @@
  * SPDX-License-Identifier: Apache-2.0 OR MIT
  *
  */
+
 #include "SourceAssetsStorage.h"
 #include "RobotImporterUtils.h"
 #include <AzCore/Serialization/Json/JsonUtils.h>
@@ -14,9 +15,58 @@
 #include <SceneAPI/SceneCore/Events/AssetImportRequest.h>
 #include <SceneAPI/SceneCore/Events/SceneSerializationBus.h>
 #include <SceneAPI/SceneCore/Utilities/SceneGraphSelector.h>
+#include <SceneAPI/SceneData/Rules/UVsRule.h>
+#include <SceneAPI/SceneData/Groups/MeshGroup.h>
+#include <AzToolsFramework/Asset/AssetUtils.h>
+#include <Source/Pipeline/MeshGroup.h> // PhysX/Code/Source/Pipeline/MeshGroup.h
+
+
 
 namespace ROS2::Utils
 {
+
+
+
+    //! A helper class that do no extend PhysX::Pipeline::MeshGroup functionality, but gives neccessary setters.
+    class UrdfPhysxMeshGroupHelper : public PhysX::Pipeline::MeshGroup
+    {
+    public:
+        void SetIsDecomposeMeshes(bool decompose){
+            m_decomposeMeshes = decompose;
+        }
+        void SetMeshExportMethod(PhysX::Pipeline::MeshExportMethod method){
+            m_exportMethod = method;
+        }
+    };
+
+    //! Returns supportered filenames by Asset Processor
+    AZStd::vector<AZStd::string> GetSupportedExtensions()
+    {
+        struct Visitor
+            : AZ::SettingsRegistryInterface::Visitor
+        {
+            void Visit(const AZ::SettingsRegistryInterface::VisitArgs&, AZStd::string_view value) override
+            {
+                m_supportedFileExtensions.emplace_back(value);
+            }
+
+            AZStd::vector<AZStd::string> m_supportedFileExtensions;
+        };
+        auto settingsRegistry = AZ::SettingsRegistry::Get();
+
+        if (settingsRegistry == nullptr)
+        {
+            AZ_Warning("GetInterestingSourceAssetsCRC", false, "Global Settings Registry is not set.");
+            return AZStd::vector<AZStd::string>();
+        }
+
+        using namespace AzToolsFramework::AssetUtils;
+        Visitor assetImporterVisitor;
+        settingsRegistry->Visit(assetImporterVisitor, AZ::SettingsRegistryInterface::FixedValueString("/O3DE/SceneAPI/AssetImporter/SupportedFileTypeExtensions"));
+        return assetImporterVisitor.m_supportedFileExtensions;
+
+    }
+
     /// Function computes CRC32 on first kilobyte of file.
     AZ::Crc32 GetFileCRC(const AZStd::string& filename)
     {
@@ -62,23 +112,6 @@ namespace ROS2::Utils
     }
 
 
-////        if (!assetDatabaseConnection.OpenDatabase())
-////        {
-////            AZ_Warning("GetInterestingSourceAssetsCRC", false, "Cannot open database");
-////        }
-////        AZStd::string productAssetPath;
-////        auto callback = [&](AzToolsFramework::AssetDatabase::ProductDatabaseEntry& entry){
-////            if( entry.m_assetType == AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")) // AZ::RPI::ModelAsset
-////            {
-////                AZ_Printf("getProductAsset", "%s", entry.ToString().c_str());
-////                productAssetPath = entry.m_productName;
-////                return false;
-////            }
-////            return true;
-////        };
-////        assetDatabaseConnection.QueryProductBySourceID( asset.m_sourceID,callback);
-////        return productAssetPath;
-//    }
     AZStd::string GetModelProductAsset(const AZ::Data::AssetId& assetId)
     {
         return GetProductAsset(assetId, AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")); //AZ::RPI::ModelAsset;
@@ -91,11 +124,11 @@ namespace ROS2::Utils
 
 
 
+
     AZStd::unordered_map<AZ::Crc32, AvailableAsset> GetInterestingSourceAssetsCRC()
     {
         // connect to database API
-
-        const AZStd::vector<AZStd::string> kInterestingExtensions{ ".dae", ".stl", ".obj", ".fbx" };
+        const AZStd::vector<AZStd::string> InterestingExtensions = GetSupportedExtensions();
         AZStd::unordered_map<AZ::Crc32, AvailableAsset> availableAssets;
 
         AzToolsFramework::AssetDatabase::AssetDatabaseConnection assetDatabaseConnection;
@@ -158,7 +191,7 @@ namespace ROS2::Utils
             return true;
         };
 
-        for (auto &extension: kInterestingExtensions){
+        for (auto &extension: InterestingExtensions){
             assetDatabaseConnection.QuerySourceLikeSourceName(extension.c_str(), AzToolsFramework::AssetDatabase::AssetDatabaseConnection::LikeType::EndsWith, callback);
         }
         return availableAssets;
@@ -213,46 +246,47 @@ namespace ROS2::Utils
             return false;
         }
 
-        //disable procedural prefab generation
+        // remove default configuration to avoid procedural prefab creation
         AZStd::vector<AZStd::shared_ptr<AZ::SceneAPI::DataTypes::IManifestObject>> toDelete;
         for (size_t i =0; i < manifest.GetEntryCount(); i++)
         {
             AZStd::shared_ptr<AZ::SceneAPI::DataTypes::IManifestObject> obj = manifest.GetValue(i);
-            if (obj->RTTI_IsTypeOf(AZ::TypeId("99FE3C6F-5B55-4D8B-8013-2708010EC715"))) // PrefabBuilder/PrefabGroup/PrefabGroup
-            {
-                toDelete.push_back(obj);
-            }
-            if (!visual && obj->RTTI_IsTypeOf(AZ::TypeId("07B356B7-3635-40B5-878A-FAC4EFD5AD86"))) // SceneAPI/SceneData/Groups/MeshGroup
-            {
-                toDelete.push_back(obj);
-            }
-            if (!collider&&obj->RTTI_IsTypeOf(AZ::TypeId("5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B"))) // PhysX/Code/Source/Pipeline/MeshGroup
-            {
-                toDelete.push_back(obj);
-            }
-
+            toDelete.push_back(obj);
         }
+
         for (auto obj : toDelete)
         {
             AZ_Printf("createSceneManifest", "Deleting %s", obj->RTTI_GetType().ToString<AZStd::string>().c_str());
             manifest.RemoveEntry(obj);
         }
 
-        auto view = AZ::SceneAPI::Containers::MakeDerivedFilterView<AZ::SceneAPI::DataTypes::ISceneNodeGroup>(valueStorage);
-        if (view.empty())
+        if (visual)
         {
-            AZ_Error("createSceneManifest", false, "Error loading collider. Invalid node views: %s", azMeshPath.c_str());
-            return false;
+            AZStd::shared_ptr<AZ::SceneAPI::SceneData::MeshGroup> sceneDataMeshGroup = AZStd::make_shared<AZ::SceneAPI::SceneData::MeshGroup>();
+
+            // select all nodes to this mesh group
+            AZ::SceneAPI::Utilities::SceneGraphSelector::SelectAll(scene->GetGraph(), sceneDataMeshGroup->GetSceneNodeSelectionList());
+
+            // enable auto-generation of UVs
+            sceneDataMeshGroup->GetRuleContainer().AddRule(AZStd::make_shared<AZ::SceneAPI::SceneData::UVsRule>());
+
+            manifest.AddEntry(sceneDataMeshGroup);
+
         }
 
-        for (AZ::SceneAPI::DataTypes::ISceneNodeGroup& mg : view)
+        if (collider)
         {
-            AZ_Printf("createSceneManifest", "aaa : %s %s" ,mg.GetName().c_str(), mg.RTTI_GetType().ToString<AZStd::string>().c_str());
-            AZ::SceneAPI::Utilities::SceneGraphSelector::SelectAll(scene->GetGraph(), mg.GetSceneNodeSelectionList());
+            AZStd::shared_ptr<UrdfPhysxMeshGroupHelper> physxDataMeshGroup = AZStd::make_shared<UrdfPhysxMeshGroupHelper>();
+            physxDataMeshGroup->SetIsDecomposeMeshes(true);
+            physxDataMeshGroup->SetMeshExportMethod(PhysX::Pipeline::MeshExportMethod::Convex);
+
+            // select all nodes to this mesh group
+            AZ::SceneAPI::Utilities::SceneGraphSelector::SelectAll(scene->GetGraph(), physxDataMeshGroup->GetSceneNodeSelectionList());
+
+            manifest.AddEntry(physxDataMeshGroup);
         }
 
-
-        // Update scene with all nodes selected
+        // Update assetinfo
         AZ::SceneAPI::Events::ProcessingResultCombiner result;
         AZ::SceneAPI::Events::AssetImportRequestBus::BroadcastResult(
             result,
@@ -271,55 +305,7 @@ namespace ROS2::Utils
         scene->GetManifest().SaveToFile(assetInfoFilePath.c_str());
 
         AZ_Printf("createSceneManifest", "Saving scene manifest to %s\n", assetInfoFilePath.c_str());
-        if (collider)
-        {
-            // Set export method to convex mesh
-            auto readOutcome = AZ::JsonSerializationUtils::ReadJsonFile(assetInfoFilePath.c_str());
-            if (!readOutcome.IsSuccess())
-            {
-                AZ_Error(
-                    "createSceneManifest",
-                    false,
-                    "Could not read %s with %s",
-                    assetInfoFilePath.c_str(),
-                    readOutcome.GetError().c_str());
-                return false;
-            }
-            rapidjson::Document assetInfoJson = readOutcome.TakeValue();
-            auto manifestObject = assetInfoJson.GetObject();
-            auto valuesIterator = manifestObject.FindMember("values");
-            if (valuesIterator == manifestObject.MemberEnd())
-            {
-                AZ_Error(
-                    "createSceneManifest", false, "Invalid json file: %s (Missing 'values' node)", assetInfoFilePath.c_str());
-                return false;
-            }
 
-            constexpr AZStd::string_view physXMeshGroupType = "{5B03C8E6-8CEE-4DA0-A7FA-CD88689DD45B} MeshGroup";
-            auto valuesArray = valuesIterator->value.GetArray();
-            for (auto& value : valuesArray)
-            {
-                auto object = value.GetObject();
-
-                auto physXMeshGroupIterator = object.FindMember("$type");
-                if (AZ::StringFunc::Equal(physXMeshGroupIterator->value.GetString(), physXMeshGroupType))
-                {
-                    value.AddMember(rapidjson::StringRef("export method"), rapidjson::StringRef("1"), assetInfoJson.GetAllocator());
-                }
-            }
-
-            auto saveOutcome = AZ::JsonSerializationUtils::WriteJsonFile(assetInfoJson, assetInfoFilePath.c_str());
-            if (!saveOutcome.IsSuccess())
-            {
-                AZ_Error(
-                    "createSceneManifest",
-                    false,
-                    "Could not save %s with %s",
-                    assetInfoFilePath.c_str(),
-                    saveOutcome.GetError().c_str());
-                return false;
-            }
-        }
         return true;
     }
 } // namespace ROS2::Utils
