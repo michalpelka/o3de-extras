@@ -42,7 +42,7 @@ namespace ROS2
    ROS2WheelOdometryComponent::ROS2WheelOdometryComponent()
    {
        TopicConfiguration tc;
-       const AZStd::string type = Internal::kOdometryMsgType;
+       const AZStd::string type = Internal::kHweelOdometryMsgType;
        tc.m_type = type;
        tc.m_topic = "odom";
        m_sensorConfiguration.m_frequency = 10;

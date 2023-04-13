@@ -14,6 +14,7 @@
 #include <rclcpp/publisher.hpp>
 #include <AzFramework/Physics/PhysicsSystem.h>
 #include <AzFramework/Physics/Common/PhysicsEvents.h>
+#include <AzFramework/Physics/SimulatedBodies/RigidBody.h>
 
 namespace ROS2
 {
