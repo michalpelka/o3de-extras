@@ -16,6 +16,7 @@
 #include <AzCore/std/smart_ptr/unique_ptr.h>
 #include <ROS2/VehicleDynamics/VehicleInputControlBus.h>
 #include <VehicleDynamics/VehicleModelLimits.h>
+#include <AzCore/std/utils.h>
 
 namespace ROS2::VehicleDynamics
 {

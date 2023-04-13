@@ -11,7 +11,6 @@
 #include <AzCore/Serialization/EditContext.h>
 #include <AzCore/Serialization/EditContextConstants.inl>
 #include <AzCore/Serialization/SerializeContext.h>
-
 #include <Source/RigidBodyComponent.h>
 
 namespace ROS2::VehicleDynamics

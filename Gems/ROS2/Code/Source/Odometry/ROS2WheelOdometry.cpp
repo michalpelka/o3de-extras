@@ -15,6 +15,7 @@
 #include <ROS2/Utilities/ROS2Conversions.h>
 #include <ROS2/Utilities/ROS2Names.h>
 #include "VehicleModelComponent.h"
+
 namespace ROS2
 {
    namespace Internal
