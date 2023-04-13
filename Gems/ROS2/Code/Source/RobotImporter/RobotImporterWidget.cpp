@@ -174,6 +174,8 @@ namespace ROS2
 
     void RobotImporterWidget::FillAssetPage()
     {
+
+        // copy
         m_assetPage->ClearAssetsList();
         if (m_parsedUrdf)
         {
@@ -348,12 +350,7 @@ namespace ROS2
             }
         }
         m_prefabMaker = AZStd::make_unique<URDFPrefabMaker>(m_urdfPath.String(), m_parsedUrdf, prefabPath.String(), m_urdfAssetsMapping);
-
-        auto callback = [&]()
-        {
-            emit SignalFinalizeURDFCreation();
-        };
-        m_prefabMaker->LoadURDF(callback);
+        m_prefabMaker->CreatePrefabFromURDF();
     }
     void RobotImporterWidget::FinalizeURDFCreation()
     {

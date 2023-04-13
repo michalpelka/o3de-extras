@@ -39,10 +39,6 @@ namespace ROS2
             const AZStd::shared_ptr<Utils::UrdfAssetMap> urdfAssetsMapping);
         ~URDFPrefabMaker() = default;
 
-        //! Loads URDF file and builds all required meshes and colliders.
-        //! @param buildReadyCb Function to call when the build finishes.
-        void LoadURDF(BuildReadyCallback buildReadyCb);
-
         //! Create and return a prefab corresponding to the URDF model as set through the constructor.
         //! @return result which is either a prefab containing the imported model based on URDF or an error.
         AzToolsFramework::Prefab::CreatePrefabResult CreatePrefabFromURDF();

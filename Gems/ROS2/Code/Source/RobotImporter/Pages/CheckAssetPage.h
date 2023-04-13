@@ -16,6 +16,7 @@
 #include <QTableWidget>
 #include <QTableWidgetItem>
 #include <QWizardPage>
+#include <QVector>
 #endif
 
 namespace ROS2
@@ -44,5 +45,7 @@ namespace ROS2
         QPushButton* m_reload {};
         unsigned int m_missingCount;
         void SetTitle();
+        QVector<QString> assetsPaths;
+        void DoubleClickRow(int row, int col);
     };
 } // namespace ROS2

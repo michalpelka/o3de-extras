@@ -37,19 +37,9 @@ namespace ROS2
 
     CollidersMaker::CollidersMaker(const AZStd::shared_ptr<Utils::UrdfAssetMap>& urdfAssetsMapping)
         : m_urdfAssetsMapping(urdfAssetsMapping)
-        , m_stopBuildFlag(false)
     {
         FindWheelMaterial();
     }
-
-    CollidersMaker::~CollidersMaker()
-    {
-        m_stopBuildFlag = true;
-        if (m_buildThread.joinable())
-        {
-            m_buildThread.join();
-        }
-    };
 
     void CollidersMaker::FindWheelMaterial()
     {
@@ -216,9 +206,6 @@ namespace ROS2
                     saveOutcome.GetError().c_str());
                 return;
             }
-
-            AZStd::lock_guard lock{ m_buildMutex };
-            m_meshesToBuild.push_back(asset->m_assetId);
         }
     }
 
@@ -368,34 +355,5 @@ namespace ROS2
             AZ_Warning(Internal::CollidersMakerLoggingTag, false, "Unsupported collider geometry type: %d", geometry->type);
             break;
         }
-    }
-
-    void CollidersMaker::ProcessMeshes(BuildReadyCallback notifyBuildReadyCb)
-    {
-        m_buildThread = AZStd::thread(
-            [this, notifyBuildReadyCb]()
-            {
-                AZ_Printf(Internal::CollidersMakerLoggingTag, "Waiting for URDF assets\n");
-
-                while (!m_meshesToBuild.empty() && !m_stopBuildFlag)
-                {
-                    {
-                        AZStd::lock_guard lock{ m_buildMutex };
-                        auto eraseFoundMesh = [](const AZ::Data::AssetId& assetId)
-                        {
-                            return !(Utils::GetPhysXMeshProductAsset(assetId).empty());
-                        };
-                        AZStd::erase_if(m_meshesToBuild, AZStd::move(eraseFoundMesh));
-                    }
-                    if (!m_meshesToBuild.empty())
-                    {
-                        AZStd::this_thread::sleep_for(AZStd::chrono::milliseconds(50));
-                    }
-                }
-
-                AZ_Printf(Internal::CollidersMakerLoggingTag, "All URDF assets are ready!\n");
-                // Notify the caller that we can continue with constructing the prefab.
-                notifyBuildReadyCb();
-            });
     }
 } // namespace ROS2

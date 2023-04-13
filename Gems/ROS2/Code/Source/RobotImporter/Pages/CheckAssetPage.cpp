@@ -11,6 +11,7 @@
 #include <QHeaderView>
 #include <QVBoxLayout>
 #include <QPushButton>
+#include "AzFramework/Asset/AssetSystemBus.h"
 namespace ROS2
 {
 
@@ -60,6 +61,7 @@ namespace ROS2
         m_table->horizontalHeader()->resizeSection(3, 400);
         m_table->horizontalHeader()->resizeSection(4, 400);
         m_table->verticalHeader()->hide();
+        connect(m_table, &QTableWidget::cellDoubleClicked, this, &CheckAssetPage::DoubleClickRow);
         this->setLayout(layout);
 
     }
@@ -106,6 +108,7 @@ namespace ROS2
         m_table->setItem(i, 2, createCell(isOk, type));
         m_table->setItem(i, 3, createCell(isOk, assetSourcePath));
         m_table->setItem(i, 4, createCell(isOk, productAsset));
+        assetsPaths.push_back(assetSourcePath);
     }
 
     QTableWidgetItem* CheckAssetPage::createCell(bool isOk, const QString& text)
@@ -122,8 +125,18 @@ namespace ROS2
 
     void CheckAssetPage::ClearAssetsList()
     {
+        assetsPaths.clear();
         m_table->setRowCount(0);
         m_missingCount = 0;
+    }
+
+    void CheckAssetPage::DoubleClickRow(int row, int col){
+        AZ_Printf("CheckAssetPage", "Clicked on row", row);
+        if (row < assetsPaths.size())
+        {
+            AZStd::string path (assetsPaths[row].toUtf8().data());
+            AzFramework::AssetSystemRequestBus::Broadcast(&AzFramework::AssetSystem::AssetSystemRequests::ShowInAssetProcessor, path);
+        }
     }
 
 } // namespace ROS2
