@@ -17,9 +17,11 @@
 #include <AzCore/Serialization/EditContext.h>
 #include <AzCore/Serialization/EditContextConstants.inl>
 #include <AzCore/Serialization/SerializeContext.h>
+#include <AzCore/Settings/SettingsRegistry.h>
 #include <AzCore/Time/ITime.h>
 #include <AzCore/std/smart_ptr/make_shared.h>
-#include <AzCore/Settings/SettingsRegistry.h>
+#include <AzCore/std/string/string_view.h>
+
 namespace ROS2
 {
     constexpr AZStd::string_view EnablePhysicsSteadyClock = "/O3DE/ROS2/SteadyClock";

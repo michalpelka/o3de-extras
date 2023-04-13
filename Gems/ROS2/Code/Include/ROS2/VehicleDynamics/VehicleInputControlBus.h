@@ -10,6 +10,7 @@
 #include <AzCore/Component/EntityId.h>
 #include <AzCore/EBus/EBus.h>
 #include <AzCore/Interface/Interface.h>
+#include <AzCore/std/utils.h>
 
 namespace ROS2::VehicleDynamics
 {
