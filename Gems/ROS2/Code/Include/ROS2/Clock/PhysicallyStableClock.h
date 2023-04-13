@@ -7,13 +7,10 @@
 */
 #pragma once
 #include <AzCore/std/chrono/chrono.h>
-#include <AzCore/std/containers/deque.h>
 #include <builtin_interfaces/msg/time.hpp>
-#include <rclcpp/publisher.hpp>
 #include <rosgraph_msgs/msg/clock.hpp>
 #include "SimulationClock.h"
 #include <AzFramework/Physics/Common/PhysicsEvents.h>
-#include <AzFramework/Physics/PhysicsSystem.h>
 #include <AzFramework/Physics/PhysicsSystem.h>
 
 namespace ROS2

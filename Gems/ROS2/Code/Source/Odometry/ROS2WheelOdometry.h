@@ -13,6 +13,7 @@
 #include <nav_msgs/msg/odometry.hpp>
 #include <rclcpp/publisher.hpp>
 #include <AzFramework/Physics/PhysicsSystem.h>
+#include <AzFramework/Physics/SimulatedBodies/RigidBody.h>
 #include <AzFramework/Physics/Common/PhysicsEvents.h>
 
 namespace ROS2

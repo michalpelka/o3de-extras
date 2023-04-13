@@ -11,6 +11,7 @@
 #include "VehicleInputs.h"
 #include <AzCore/Serialization/SerializeContext.h>
 #include <VehicleDynamics/VehicleModelLimits.h>
+#include <AzCore/std/utils.h>
 
 namespace ROS2::VehicleDynamics
 {
