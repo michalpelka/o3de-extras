@@ -17,6 +17,9 @@
 #include <QTableWidgetItem>
 #include <QWizardPage>
 #include <QVector>
+#include <AzCore/Asset/AssetCommon.h>
+#include <AzCore/std/containers/map.h>
+#include <QTimer>
 #endif
 
 namespace ROS2
@@ -27,6 +30,7 @@ namespace ROS2
     public:
         explicit CheckAssetPage(QWizard* parent);
         void ReportAsset(
+            const AZ::Data::AssetId assetId,
             const QString& urdfPath,
             const QString& type,
             const QString& assetSourcePath,
@@ -40,12 +44,18 @@ namespace ROS2
         void UserRediscoverRequest();
     private:
         bool m_success;
+        QTimer* refreshTimer;
         QTableWidget* m_table {};
         QTableWidgetItem* createCell(bool isOk, const QString& text);
         QPushButton* m_reload {};
         unsigned int m_missingCount;
         void SetTitle();
+        AZStd::vector<AZ::Data::AssetId> assetsId;
+        AZStd::unordered_set<AZ::Data::AssetId> processedAssets;
         QVector<QString> assetsPaths;
         void DoubleClickRow(int row, int col);
+        void RefreshTimerElapsed();
+
+
     };
 } // namespace ROS2

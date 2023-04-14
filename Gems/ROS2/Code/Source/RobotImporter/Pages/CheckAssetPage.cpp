@@ -12,6 +12,8 @@
 #include <QVBoxLayout>
 #include <QPushButton>
 #include "AzFramework/Asset/AssetSystemBus.h"
+#include "../Utils/SourceAssetsStorage.h"
+
 namespace ROS2
 {
 
@@ -63,7 +65,10 @@ namespace ROS2
         m_table->verticalHeader()->hide();
         connect(m_table, &QTableWidget::cellDoubleClicked, this, &CheckAssetPage::DoubleClickRow);
         this->setLayout(layout);
-
+        refreshTimer = new QTimer(this);
+        refreshTimer->setInterval(250);
+        refreshTimer->setSingleShot(false);
+        connect(refreshTimer, &QTimer::timeout, this, &CheckAssetPage::RefreshTimerElapsed);
     }
 
     void CheckAssetPage::SetTitle()
@@ -84,6 +89,7 @@ namespace ROS2
     };
 
     void CheckAssetPage::ReportAsset(
+        const AZ::Data::AssetId assetId,
         const QString& urdfPath,
         const QString& type,
         const QString& assetSourcePath,
@@ -107,8 +113,9 @@ namespace ROS2
         m_table->setItem(i, 1, createCell(isOk, resolvedUrdfPath));
         m_table->setItem(i, 2, createCell(isOk, type));
         m_table->setItem(i, 3, createCell(isOk, assetSourcePath));
-        m_table->setItem(i, 4, createCell(isOk, productAsset));
+        m_table->setItem(i, 4, createCell(false, productAsset));
         assetsPaths.push_back(assetSourcePath);
+        assetsId.push_back(assetId);
     }
 
     QTableWidgetItem* CheckAssetPage::createCell(bool isOk, const QString& text)
@@ -125,9 +132,12 @@ namespace ROS2
 
     void CheckAssetPage::ClearAssetsList()
     {
+        assetsId.clear();
+        processedAssets.clear();
         assetsPaths.clear();
         m_table->setRowCount(0);
         m_missingCount = 0;
+        refreshTimer->start();
     }
 
     void CheckAssetPage::DoubleClickRow(int row, int col){
@@ -138,5 +148,23 @@ namespace ROS2
             AzFramework::AssetSystemRequestBus::Broadcast(&AzFramework::AssetSystem::AssetSystemRequests::ShowInAssetProcessor, path);
         }
     }
+
+    void CheckAssetPage::RefreshTimerElapsed(){
+        for (int i =0; i < assetsId.size(); i++)
+        {
+            const auto &assetId  = assetsId[i];
+            if (processedAssets.contains(assetId))
+            {
+                continue;
+            }
+            const AZStd::string productRelPathVisual = Utils::GetModelProductAsset(assetId);
+            const AZStd::string productRelPathCollider = Utils::GetPhysXMeshProductAsset(assetId);
+            QString text = QString::fromUtf8(productRelPathVisual.data(), productRelPathVisual.size())+ " " +
+                QString::fromUtf8(productRelPathCollider.data(), productRelPathCollider.size());
+            bool isOk = productRelPathVisual.empty() || productRelPathCollider.empty();
+            m_table->setItem(i, 4, createCell(isOk, text));
+        }
+    }
+
 
 } // namespace ROS2

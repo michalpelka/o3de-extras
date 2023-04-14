@@ -36,9 +36,6 @@ namespace ROS2::Utils
         //! Product asset ID @see AZ::Data::AssetInfo.
         AZ::Data::AssetId m_assetId;
 
-        //! Source ID of source asset
-        AZ::s64 m_sourceID = AzToolsFramework::AssetDatabase::InvalidEntryId;
-
         //! Source GUID of source asset
         AZ::Uuid m_sourceGuid = AZ::Uuid::CreateNull();
 
@@ -79,8 +76,10 @@ namespace ROS2::Utils
     //! - Suitable mapping to the O3DE asset is found by comparing the checksum of the file pointed by the URDF path and source asset.
     //! @param meshesFilenames - list of the unresolved path from the URDF file
     //! @param urdFilename - filename of URDF file, used for resolvement
+    //! @param tip - filenames to check in the first place
     //! @returns a URDF Asset map where the key is unresolved URDF path to AvailableAsset
-    UrdfAssetMap FindAssetsForUrdf(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename);
+    UrdfAssetMap FindAssetsForUrdf(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename,
+                                   const AZStd::unordered_set<AZStd::string>& tip);
 
     //! Helper function that gives products asset id from asset Id.
     //! @param asset is source asset id
@@ -98,5 +97,15 @@ namespace ROS2::Utils
     //! Creates side-car file (.assetinfo) that configures scene to generate physx Mesh.
     //! @param sourceAssetPath - global path to source asset
     bool createSceneManifest(const AZStd::string sourceAssetPath, bool collider, bool visual);
+
+    //! Resolves urdf pathes, copies assets from filesystem to prepared directory and creates assetinfos
+    //! @param meshesFilenames - files to copy (as unresolved urdf pathes)
+    //! @param urdFilename - urdfFileName
+    //! @param colliders - files to create collider assetinfo (as unresolved urdf pathes)
+    //! @param visuals - files to create visual assetinfo (as unresolved urdf pathes)
+    //! @returns absolute paths to copied files
+    AZStd::unordered_set<AZStd::string> CopyAssetForURDFAmndCreateAssetInfo(const AZStd::unordered_set<AZStd::string>& meshesFilenames, const AZStd::string& urdFilename,
+                                             const AZStd::unordered_set<AZStd::string>& colliders,
+                                             const AZStd::unordered_set<AZStd::string>& visual);
 
 } // namespace ROS2::Utils

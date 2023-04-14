@@ -175,13 +175,16 @@ namespace ROS2
     void RobotImporterWidget::FillAssetPage()
     {
 
-        // copy
         m_assetPage->ClearAssetsList();
         if (m_parsedUrdf)
         {
             auto collidersNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), false, true);
             auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
-            m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String()));
+
+            AZStd::unordered_set<AZStd::string> copiedFiles;
+            copiedFiles = Utils::CopyAssetForURDFAmndCreateAssetInfo(m_meshNames, m_urdfPath.String(),collidersNames,visualNames );
+
+            m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String(),copiedFiles));
 
             for (const AZStd::string& meshPath : m_meshNames)
             {
@@ -200,6 +203,7 @@ namespace ROS2
                 const QString meshPathqs = QString::fromUtf8(meshPath.data(), meshPath.size());
                 const QString kNotFound = tr("not found");
 
+                AZ::Data::AssetId sourceAssetId;
                 if (m_urdfAssetsMapping->contains(meshPath))
                 {
                     QString type = kNotFound;
@@ -225,42 +229,19 @@ namespace ROS2
                     if (m_urdfAssetsMapping->contains(meshPath))
                     {
                         const auto& asset = m_urdfAssetsMapping->at(meshPath);
+                        sourceAssetId = asset.m_availableAssetInfo.m_assetId;
                         const AZStd::string& sourcePathAz = asset.m_availableAssetInfo.m_sourceAssetRelativePath;
                         const AZStd::string& resolvedPath = asset.m_resolvedUrdfPath.data();
 
                         sourcePath = QString::fromUtf8(sourcePathAz.data(), sourcePathAz.size());
                         crc = asset.m_urdfFileCRC;
                         tooltip = QString::fromUtf8(resolvedPath.data(), resolvedPath.size());
-                        if (visual)
-                        {
-                            const AZStd::string productRelPath = Utils::GetModelProductAsset(asset.m_availableAssetInfo.m_assetId);
-                            if (!productRelPath.empty())
-                            {
-                                productAssetText += tr("Visual : ") + QString::fromUtf8(productRelPath.data(), productRelPath.size())+"; ";
-                            }
-                            else
-                            {
-                                productAssetText += tr("Visual mesh product is not available; ");
-                            }
-                        }
-                        if (collider)
-                        {
-                            const AZStd::string productRelPath = Utils::GetPhysXMeshProductAsset(asset.m_availableAssetInfo.m_assetId);
-                            if (!productRelPath.empty())
-                            {
-                                productAssetText += tr("Collider mesh: ") + QString::fromUtf8(productRelPath.data(), productRelPath.size()) +"; ";
-                            }
-                            else
-                            {
-                                productAssetText += tr("Collider mesh product is not available; ");
-                            }
-                        }
                     }
-                    m_assetPage->ReportAsset(meshPathqs, type, sourcePath, crc, tooltip, productAssetText);
+                    m_assetPage->ReportAsset(sourceAssetId,meshPathqs, type, sourcePath, crc, tooltip, kNotFound);
                 }
                 else
                 {
-                    m_assetPage->ReportAsset(meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
+                    m_assetPage->ReportAsset(sourceAssetId,meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
                 };
             }
         }

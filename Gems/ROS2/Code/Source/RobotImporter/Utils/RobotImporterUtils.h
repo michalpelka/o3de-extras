@@ -70,15 +70,6 @@ namespace ROS2
             const AZStd::string& amentPrefixPath,
             const AZStd::function<bool(const AZStd::string&)>& fileExists = FileExistsCall);
 
-        //! Resolves path from unresolved URDF path to package location.
-        //! @param unresolvedPath - unresolved URDF path, example : `package://somepackage/meshes/foo.dae`.
-        //! @param urdfFilePath - the absolute path of URDF file which contains the path that is to be resolved.
-        //! @param fileExists - functor to check if the given file exists. Exposed for unit test, default one should be used.
-        //! @returns resolved path to the mesh
-        AZStd::string ResolveURDFPathToPackage(
-            AZStd::string unresolvedPath,
-            const AZStd::string& urdfFilePath,
-            const AZStd::function<bool(const AZStd::string&)>& fileExists = FileExistsCall);
 
 
     } // namespace Utils
