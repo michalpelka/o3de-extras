@@ -115,10 +115,12 @@ namespace ROS2
             return { m_sensorConfiguration.m_publishersConfigurations[CameraConstants::ColorInfoConfig],
                      m_sensorConfiguration.m_publishersConfigurations[CameraConstants::DepthInfoConfig] };
         }
-        
+
         //! Helper that adds publishers based on predefined configuration.
-        template <typename PublishedData>
-        void AddPublishersFromConfiguration(const AZStd::vector<TopicConfiguration> configurations, AZStd::vector<std::shared_ptr<rclcpp::Publisher<PublishedData>>>& publishers)
+        template<typename PublishedData>
+        void AddPublishersFromConfiguration(
+            const AZStd::vector<TopicConfiguration> configurations,
+            AZStd::vector<std::shared_ptr<rclcpp::Publisher<PublishedData>>>& publishers)
         {
             for (const auto& configuration : configurations)
             {
