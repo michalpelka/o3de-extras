@@ -13,10 +13,10 @@
 
 #include <AzCore/Component/Component.h>
 
-#include "AzCore/std/containers/vector.h"
 #include "CameraSensor.h"
 #include "CameraSensorConfiguration.h"
 #include "ROS2/Communication/TopicConfiguration.h"
+#include <AzCore/std/containers/vector.h>
 #include <ROS2/Frame/NamespaceConfiguration.h>
 #include <ROS2/Frame/ROS2Transform.h>
 #include <ROS2/ROS2Bus.h>
