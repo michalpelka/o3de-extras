@@ -9,12 +9,15 @@
 
 #include <AzCore/Math/Transform.h>
 #include <AzCore/Serialization/SerializeContext.h>
+#include <AzFramework/Physics/Common/PhysicsEvents.h>
+#include <AzFramework/Physics/PhysicsSystem.h>
 #include <ROS2/Sensor/ROS2SensorComponent.h>
 #include <rclcpp/publisher.hpp>
 #include <sensor_msgs/msg/imu.hpp>
 
 namespace ROS2
 {
+
     //! An IMU (Inertial Measurement Unit) sensor Component.
     //! IMUs typically include gyroscopes, accelerometers and magnetometers. This component encapsulates data
     //! acquisition and its publishing to ROS2 ecosystem. IMU Component requires ROS2FrameComponent.
@@ -24,6 +27,7 @@ namespace ROS2
         AZ_COMPONENT(ROS2ImuSensorComponent, "{502A955E-7742-4E23-AD77-5E4063739DCA}", ROS2SensorComponent);
         ROS2ImuSensorComponent();
         ~ROS2ImuSensorComponent() = default;
+        static void GetRequiredServices(AZ::ComponentDescriptor::DependencyArrayType& required);
         static void Reflect(AZ::ReflectContext* context);
         //////////////////////////////////////////////////////////////////////////
         // Component overrides
@@ -32,20 +36,26 @@ namespace ROS2
         //////////////////////////////////////////////////////////////////////////
 
     private:
-        //////////////////////////////////////////////////////////////////////////
-        // ROS2SensorComponent overrides
-        void FrequencyTick() override;
-        //////////////////////////////////////////////////////////////////////////
+        //! Length of filter that removes numerical noise
+        int m_filterSize{ 10 };
 
-        void InitializeImuMessage();
-        double GetCurrentTimeInSec() const;
-        AZ::Transform GetCurrentPose() const;
+        //! Include gravity acceleration
+        bool m_includeGravity {true};
+
+        //! Measure also absolute rotation
+        bool m_absoluteRotation {true};
 
         std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::Imu>> m_imuPublisher;
-
         sensor_msgs::msg::Imu m_imuMsg;
-        double m_previousTime = 0.0;
-        AZ::Transform m_previousPose = AZ::Transform::CreateIdentity();
         AZ::Vector3 m_previousLinearVelocity = AZ::Vector3::CreateZero();
+
+        AzPhysics::SceneEvents::OnSceneSimulationFinishHandler m_onSceneSimulationEvent;
+        AzPhysics::SimulatedBodyHandle m_bodyHandle = AzPhysics::InvalidSimulatedBodyHandle;
+        AZ::Vector3 m_acceleration{ 0 };
+        AZStd::deque<AZ::Vector3> m_filterAcceleration;
+        AZStd::deque<AZ::Vector3> m_filterAngularVelocity;
+    protected:
+        // ROS2SensorComponent overrides ...
+        void SetupRefreshLoop() override;
     };
 } // namespace ROS2
