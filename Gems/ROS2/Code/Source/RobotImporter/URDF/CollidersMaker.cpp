@@ -280,7 +280,7 @@ namespace ROS2
                 return;
             }
 
-            AZStd::string pxmodelPath = Utils::GetPhysXMeshProductAsset(asset->m_assetId);
+            AZStd::string pxmodelPath = Utils::GetPhysXMeshProductAsset(asset->m_sourceGuid);
             if (pxmodelPath.empty())
             {
                 AZ_Error(Internal::CollidersMakerLoggingTag, false, "Could not find pxmodel for %s", asset->m_sourceAssetGlobalPath.c_str());

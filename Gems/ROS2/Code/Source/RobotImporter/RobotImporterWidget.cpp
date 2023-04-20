@@ -203,7 +203,7 @@ namespace ROS2
                 const QString meshPathqs = QString::fromUtf8(meshPath.data(), meshPath.size());
                 const QString kNotFound = tr("not found");
 
-                AZ::Data::AssetId sourceAssetId;
+                AZ::Uuid sourceAssetUuid;
                 if (m_urdfAssetsMapping->contains(meshPath))
                 {
                     QString type = kNotFound;
@@ -229,7 +229,7 @@ namespace ROS2
                     if (m_urdfAssetsMapping->contains(meshPath))
                     {
                         const auto& asset = m_urdfAssetsMapping->at(meshPath);
-                        sourceAssetId = asset.m_availableAssetInfo.m_assetId;
+                        sourceAssetUuid = asset.m_availableAssetInfo.m_sourceGuid;
                         const AZStd::string& sourcePathAz = asset.m_availableAssetInfo.m_sourceAssetRelativePath;
                         const AZStd::string& resolvedPath = asset.m_resolvedUrdfPath.data();
 
@@ -237,11 +237,11 @@ namespace ROS2
                         crc = asset.m_urdfFileCRC;
                         tooltip = QString::fromUtf8(resolvedPath.data(), resolvedPath.size());
                     }
-                    m_assetPage->ReportAsset(sourceAssetId,meshPathqs, type, sourcePath, crc, tooltip, kNotFound);
+                    m_assetPage->ReportAsset(sourceAssetUuid,meshPathqs, type, sourcePath, crc, tooltip, kNotFound);
                 }
                 else
                 {
-                    m_assetPage->ReportAsset(sourceAssetId,meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
+                    m_assetPage->ReportAsset(sourceAssetUuid,meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
                 };
             }
         }

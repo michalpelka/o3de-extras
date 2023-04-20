@@ -33,9 +33,6 @@ namespace ROS2::Utils
         //! Relative path to source asset eg `foo_robot/meshes/bar_link.azmodel`.
         AZStd::string m_productAssetRelativePath;
 
-        //! Product asset ID @see AZ::Data::AssetInfo.
-        AZ::Data::AssetId m_assetId;
-
         //! Source GUID of source asset
         AZ::Uuid m_sourceGuid = AZ::Uuid::CreateNull();
 
@@ -82,17 +79,17 @@ namespace ROS2::Utils
                                    const AZStd::unordered_set<AZStd::string>& tip);
 
     //! Helper function that gives products asset id from asset Id.
-    //! @param asset is source asset id
+    //! @param sourceAssetUUID is source source asset GUID
     //! @param typeId type of product asset
-    AZStd::string GetProductAsset(const AZ::Data::AssetId& assetId, const AZ::TypeId typeId);
+    AZStd::string GetProductAsset(const AZ::Uuid& sourceAssetUUID, const AZ::TypeId typeId);
 
-    //! Helper function that gives AZ::RPI::ModelAsset product asset id from asset info.
-    //! @param asset is source assetId
-    AZStd::string GetModelProductAsset(const AZ::Data::AssetId& assetId);
+    //! Helper function that gives AZ::RPI::ModelAsset product asset GUID from asset info.
+    //! @param sourceAssetUUID is source source asset GUID
+    AZStd::string GetModelProductAsset(const AZ::Uuid& sourceAssetUUID);
 
-    //! Helper function that gives PhysX::Pipeline::MeshAsset product asset id from asset info.
-    //! @param asset is source assetId
-    AZStd::string GetPhysXMeshProductAsset(const AZ::Data::AssetId& assetId);
+    //! Helper function that gives PhysX::Pipeline::MeshAsset product asset GUID from asset info.
+    //! @param sourceAssetUUID is source source asset GUID
+    AZStd::string GetPhysXMeshProductAsset(const AZ::Uuid& sourceAssetUUID);
 
     //! Creates side-car file (.assetinfo) that configures scene to generate physx Mesh.
     //! @param sourceAssetPath - global path to source asset

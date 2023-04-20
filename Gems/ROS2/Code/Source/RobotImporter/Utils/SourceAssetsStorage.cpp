@@ -87,13 +87,13 @@ namespace ROS2::Utils
         return r;
     }
 
-    AZStd::string GetProductAsset(const AZ::Data::AssetId& assetId , const AZ::TypeId typeId)
+    AZStd::string GetProductAsset(const AZ::Uuid& sourceAssetUUID, const AZ::TypeId typeId)
     {
         AZStd::vector<AZ::Data::AssetInfo> productsAssetInfo;
         using AssetSysReqBus = AzToolsFramework::AssetSystemRequestBus;
         bool ok{ false };
         AssetSysReqBus::BroadcastResult(
-            ok, &AssetSysReqBus::Events::GetAssetsProducedBySourceUUID, assetId.m_guid, productsAssetInfo);
+            ok, &AssetSysReqBus::Events::GetAssetsProducedBySourceUUID, sourceAssetUUID, productsAssetInfo);
         if (ok)
         {
             for (auto& product : productsAssetInfo)
@@ -110,15 +110,14 @@ namespace ROS2::Utils
         return "";
     }
 
-
-    AZStd::string GetModelProductAsset(const AZ::Data::AssetId& assetId)
+    AZStd::string GetModelProductAsset(const AZ::Uuid& sourceAssetUUID)
     {
-        return GetProductAsset(assetId, AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")); //AZ::RPI::ModelAsset;
+        return GetProductAsset(sourceAssetUUID, AZ::TypeId("{2C7477B6-69C5-45BE-8163-BCD6A275B6D8}")); //AZ::RPI::ModelAsset;
     }
 
-    AZStd::string GetPhysXMeshProductAsset(const AZ::Data::AssetId& assetId)
+    AZStd::string GetPhysXMeshProductAsset(const AZ::Uuid& sourceAssetUUID)
     {
-        return GetProductAsset(assetId, AZ::TypeId("{7A2871B9-5EAB-4DE0-A901-B0D2C6920DDB}")); //PhysX::Pipeline::MeshAsset
+        return GetProductAsset(sourceAssetUUID, AZ::TypeId("{7A2871B9-5EAB-4DE0-A901-B0D2C6920DDB}")); //PhysX::Pipeline::MeshAsset
     }
 
 
@@ -149,8 +148,6 @@ namespace ROS2::Utils
         }
 
         foundAsset.m_sourceGuid = assetInfo.m_assetId.m_guid;
-
-        foundAsset.m_assetId = assetInfo.m_assetId;
 
         foundAsset.m_sourceAssetRelativePath = assetInfo.m_relativePath;
         foundAsset.m_sourceAssetGlobalPath = globalSourceAssetPath;
@@ -201,7 +198,6 @@ namespace ROS2::Utils
                 AZ_Warning("GetInterestingSourceAssetsCRC", false, "Cannot find source asset info for %s", entry.ToString().c_str());
                 return true;
             }
-            foundAsset.m_assetId = assetInfo.m_assetId;
 
             const auto fullSourcePath = AZ::IO::Path(watchFolder)/AZ::IO::Path(assetInfo.m_relativePath);
 
