@@ -70,7 +70,5 @@ namespace ROS2
             const AZStd::string& amentPrefixPath,
             const AZStd::function<bool(const AZStd::string&)>& fileExists = FileExistsCall);
 
-
-
     } // namespace Utils
 } // namespace ROS2

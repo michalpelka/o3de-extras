@@ -16,7 +16,6 @@
 #include "Pages/PrefabMakerPage.h"
 #include "Pages/XacroParamsPage.h"
 
-
 #include "URDF/URDFPrefabMaker.h"
 #include "URDF/UrdfParser.h"
 #include <AzCore/Asset/AssetCommon.h>
@@ -71,6 +70,7 @@ namespace ROS2
         XacroParamsPage* m_xacroParamsPage;
         AZ::IO::Path m_urdfPath;
         urdf::ModelInterfaceSharedPtr m_parsedUrdf;
+        bool m_importAssetWithUrdf{ false };
 
         /// mapping from urdf path to asset source
         AZStd::shared_ptr<Utils::UrdfAssetMap> m_urdfAssetsMapping;

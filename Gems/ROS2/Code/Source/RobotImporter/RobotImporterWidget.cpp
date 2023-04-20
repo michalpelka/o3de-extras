@@ -42,7 +42,6 @@ namespace ROS2
         connect(m_prefabMakerPage, &QWizardPage::completeChanged, this, &RobotImporterWidget::OnUrdfCreated);
         connect(m_prefabMakerPage, &PrefabMakerPage::onCreateButtonPressed, this, &RobotImporterWidget::onCreateButtonPressed);
         connect(this, &RobotImporterWidget::SignalFinalizeURDFCreation, this, &RobotImporterWidget::FinalizeURDFCreation);
-        connect(m_assetPage, &CheckAssetPage::UserRediscoverRequest, this, &RobotImporterWidget::FillAssetPage);
 
         connect(
             this,
@@ -96,13 +95,14 @@ namespace ROS2
                 else
                 {
                     report += "# " + tr("XACRO parsing failed") + "\n";
-                    report += "\n\n## " + tr("Command called") +  "\n\n`" + QString::fromUtf8(outcome.m_called.data()) + "`";
+                    report += "\n\n## " + tr("Command called") + "\n\n`" + QString::fromUtf8(outcome.m_called.data()) + "`";
                     report += "\n\n" + tr("Process failed");
                     report += "\n\n## " + tr("Error output") + "\n\n";
                     report += "```\n";
                     if (outcome.m_logErrorOutput.size())
                     {
-                        report += QString::fromLocal8Bit(outcome.m_logErrorOutput.data(), static_cast<int>(outcome.m_logErrorOutput.size()));
+                        report +=
+                            QString::fromLocal8Bit(outcome.m_logErrorOutput.data(), static_cast<int>(outcome.m_logErrorOutput.size()));
                     }
                     else
                     {
@@ -113,7 +113,8 @@ namespace ROS2
                     report += "```\n";
                     if (outcome.m_logStandardOutput.size())
                     {
-                        report += QString::fromLocal8Bit(outcome.m_logStandardOutput.data(), static_cast<int>(outcome.m_logStandardOutput.size()));
+                        report += QString::fromLocal8Bit(
+                            outcome.m_logStandardOutput.data(), static_cast<int>(outcome.m_logStandardOutput.size()));
                     }
                     else
                     {
@@ -174,17 +175,21 @@ namespace ROS2
 
     void RobotImporterWidget::FillAssetPage()
     {
-
         m_assetPage->ClearAssetsList();
         if (m_parsedUrdf)
         {
             auto collidersNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), false, true);
             auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
 
-            AZStd::unordered_set<AZStd::string> copiedFiles;
-            copiedFiles = Utils::CopyAssetForURDFAmndCreateAssetInfo(m_meshNames, m_urdfPath.String(),collidersNames,visualNames );
-
-            m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String(),copiedFiles));
+            if (m_importAssetWithUrdf)
+            {
+                m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(
+                    Utils::CopyAssetForURDFAndCreateAssetMap(m_meshNames, m_urdfPath.String(), collidersNames, visualNames));
+            }
+            else
+            {
+                m_urdfAssetsMapping = AZStd::make_shared<Utils::UrdfAssetMap>(Utils::FindAssetsForUrdf(m_meshNames, m_urdfPath.String()));
+            };
 
             for (const AZStd::string& meshPath : m_meshNames)
             {
@@ -197,17 +202,16 @@ namespace ROS2
                 }
             }
 
-
             for (const AZStd::string& meshPath : m_meshNames)
             {
-                const QString meshPathqs = QString::fromUtf8(meshPath.data(), meshPath.size());
                 const QString kNotFound = tr("not found");
-
+                const AZStd::string kNotFoundAz(kNotFound.toUtf8());
                 AZ::Uuid sourceAssetUuid;
                 if (m_urdfAssetsMapping->contains(meshPath))
                 {
                     QString type = kNotFound;
-                    QString sourcePath = kNotFound;
+                    AZStd::string sourcePath(kNotFoundAz);
+                    AZStd::string resolvedPath(kNotFoundAz);
                     QString productAssetText;
                     auto crc = AZ::Crc32();
                     QString tooltip = kNotFound;
@@ -230,18 +234,16 @@ namespace ROS2
                     {
                         const auto& asset = m_urdfAssetsMapping->at(meshPath);
                         sourceAssetUuid = asset.m_availableAssetInfo.m_sourceGuid;
-                        const AZStd::string& sourcePathAz = asset.m_availableAssetInfo.m_sourceAssetRelativePath;
-                        const AZStd::string& resolvedPath = asset.m_resolvedUrdfPath.data();
-
-                        sourcePath = QString::fromUtf8(sourcePathAz.data(), sourcePathAz.size());
+                        sourcePath = asset.m_availableAssetInfo.m_sourceAssetRelativePath;
+                        resolvedPath = asset.m_resolvedUrdfPath.data();
                         crc = asset.m_urdfFileCRC;
                         tooltip = QString::fromUtf8(resolvedPath.data(), resolvedPath.size());
                     }
-                    m_assetPage->ReportAsset(sourceAssetUuid,meshPathqs, type, sourcePath, crc, tooltip, kNotFound);
+                    m_assetPage->ReportAsset(sourceAssetUuid, meshPath, type, sourcePath, crc, resolvedPath);
                 }
                 else
                 {
-                    m_assetPage->ReportAsset(sourceAssetUuid,meshPathqs, kNotFound, kNotFound, AZ::Crc32(), kNotFound,kNotFound);
+                    m_assetPage->ReportAsset(sourceAssetUuid, meshPath, kNotFound, kNotFoundAz, AZ::Crc32(), kNotFoundAz);
                 };
             }
         }
@@ -268,13 +270,14 @@ namespace ROS2
             {
                 m_params = Utils::xacro::GetParameterFromXacroFile(m_urdfPath.String());
                 AZ_Printf("RobotImporterWidget", "Xacro has %d arguments\n", m_params.size())
-                m_xacroParamsPage->SetXacroParameters(m_params);
+                    m_xacroParamsPage->SetXacroParameters(m_params);
             }
             // no need to wait for param page - parse urdf now, nextId will skip unnecessary pages
             if (m_params.empty())
             {
                 OpenUrdf();
             }
+            m_importAssetWithUrdf = m_fileSelectPage->getIfCopyAssetsDuringUrdfImport();
         }
         if (currentPage() == m_xacroParamsPage)
         {

@@ -9,17 +9,18 @@
 #pragma once
 
 #if !defined(Q_MOC_RUN)
+#include <AzCore/Asset/AssetCommon.h>
 #include <AzCore/Math/Crc.h>
+#include <AzCore/std/containers/map.h>
+#include <AzCore/std/containers/vector.h>
 #include <AzCore/std/string/string.h>
 #include <QLabel>
 #include <QString>
 #include <QTableWidget>
 #include <QTableWidgetItem>
-#include <QWizardPage>
-#include <QVector>
-#include <AzCore/Asset/AssetCommon.h>
-#include <AzCore/std/containers/map.h>
 #include <QTimer>
+#include <QVector>
+#include <QWizardPage>
 #endif
 
 namespace ROS2
@@ -33,31 +34,29 @@ namespace ROS2
         //! Function reports assets that are will be processed by asset processor.
         void ReportAsset(
             const AZ::Uuid assetUuid,
-            const QString& urdfPath,
+            const AZStd::string urdfPath,
             const QString& type,
-            const QString& assetSourcePath,
+            const AZStd::string assetSourcePath,
             const AZ::Crc32& crc32,
-            const QString& resolvedUrdfPath,
-            const QString& productAsset);
+            const AZStd::string resolvedUrdfPath);
         void ClearAssetsList();
-
         bool isComplete() const override;
-    Q_SIGNALS:
-        void UserRediscoverRequest();
+
     private:
         bool m_success;
-        QTimer* refreshTimer;
-        QTableWidget* m_table {};
+        QTimer* m_refreshTimer{};
+        QTableWidget* m_table{};
         QTableWidgetItem* createCell(bool isOk, const QString& text);
-        QPushButton* m_reload {};
-        unsigned int m_missingCount;
+        QLabel* m_numberOfAssetLabel{};
+        unsigned int m_missingCount{ 0 };
+        unsigned int m_failedCount{ 0 };
         void SetTitle();
         AZStd::vector<AZ::Uuid> m_assetsUuids;
-        AZStd::unordered_set<AZ::Uuid> m_processedAssets;
-        QVector<QString> m_assetsPaths;
+        AZStd::vector<AZStd::string> m_assetsPaths;
+        AZStd::unordered_set<AZ::Uuid> m_assetsUuidsFinished;
         void DoubleClickRow(int row, int col);
         void RefreshTimerElapsed();
-
-
+        QIcon m_failureIcon;
+        QIcon m_okIcon;
     };
 } // namespace ROS2
