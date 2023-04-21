@@ -64,7 +64,6 @@ namespace ROS2
         InertialsMaker m_inertialsMaker;
         JointsMaker m_jointsMaker;
 
-        BuildReadyCallback m_notifyBuildReadyCb;
         AZStd::mutex m_statusLock;
         AZStd::multimap<AZStd::string, AZStd::string> m_status;
 

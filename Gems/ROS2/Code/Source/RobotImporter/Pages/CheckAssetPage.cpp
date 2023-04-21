@@ -125,6 +125,12 @@ namespace ROS2
         }
     }
 
+    void CheckAssetPage::StartWatchAsset()
+    {
+        m_refreshTimer->start();
+    }
+
+
     QTableWidgetItem* CheckAssetPage::createCell(bool isOk, const QString& text)
     {
         QTableWidgetItem* p = new QTableWidgetItem(text);
@@ -145,7 +151,12 @@ namespace ROS2
         m_table->setRowCount(0);
         m_missingCount = 0;
         m_failedCount = 0;
-        m_refreshTimer->start();
+        m_refreshTimer->stop();
+    }
+
+    bool CheckAssetPage::IsEmpty() const
+    {
+        return m_assetsUuids.empty();
     }
 
     void CheckAssetPage::DoubleClickRow(int row, int col)

@@ -332,23 +332,30 @@ namespace ROS2
                 Physics::BoxShapeConfiguration cfg;
                 auto* component = entity->CreateComponent<PhysX::EditorColliderComponent>(colliderConfig, cfg);
                 entity->Activate();
-                PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
-                    AZ::EntityComponentIdPair(entityId, component->GetId()),
-                    &PhysX::EditorPrimitiveColliderComponentRequests::SetShapeType,
-                    Physics::ShapeType::Cylinder);
-                PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
-                    AZ::EntityComponentIdPair(entityId, component->GetId()),
-                    &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderHeight,
-                    cylinderGeometry->length);
-                PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
-                    AZ::EntityComponentIdPair(entityId, component->GetId()),
-                    &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderRadius,
-                    cylinderGeometry->radius);
-                PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
-                    AZ::EntityComponentIdPair(entityId, component->GetId()),
-                    &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderSubdivisionCount,
-                    32);
-                entity->Deactivate();
+                if (entity->GetState() == AZ::Entity::State::Active)
+                {
+                    PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
+                        AZ::EntityComponentIdPair(entityId, component->GetId()),
+                        &PhysX::EditorPrimitiveColliderComponentRequests::SetShapeType,
+                        Physics::ShapeType::Cylinder);
+                    PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
+                        AZ::EntityComponentIdPair(entityId, component->GetId()),
+                        &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderHeight,
+                        cylinderGeometry->length);
+                    PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
+                        AZ::EntityComponentIdPair(entityId, component->GetId()),
+                        &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderRadius,
+                        cylinderGeometry->radius);
+                    PhysX::EditorPrimitiveColliderComponentRequestBus::Event(
+                        AZ::EntityComponentIdPair(entityId, component->GetId()),
+                        &PhysX::EditorPrimitiveColliderComponentRequests::SetCylinderSubdivisionCount,
+                        120);
+                    entity->Deactivate();
+                }
+                else
+                {
+                    AZ_Warning(Internal::CollidersMakerLoggingTag, false, "The entity was no activated %s", entity->GetName().c_str()  );
+                }
             }
             break;
         default:

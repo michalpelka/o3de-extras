@@ -40,7 +40,9 @@ namespace ROS2
             const AZ::Crc32& crc32,
             const AZStd::string resolvedUrdfPath);
         void ClearAssetsList();
+        bool IsEmpty() const;
         bool isComplete() const override;
+        void StartWatchAsset();
 
     private:
         bool m_success;

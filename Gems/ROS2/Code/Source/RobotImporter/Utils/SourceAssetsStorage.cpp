@@ -39,7 +39,7 @@ namespace ROS2::Utils
         }
     };
 
-    //! Returns supportered filenames by Asset Processor
+    //! Returns supported filenames by Asset Processor
     AZStd::vector<AZStd::string> GetSupportedExtensions()
     {
         struct Visitor : AZ::SettingsRegistryInterface::Visitor
@@ -215,7 +215,6 @@ namespace ROS2::Utils
                     "GetInterestingSourceAssetsCRC", false, "Zero CRC for source asset %s", foundAsset.m_sourceAssetGlobalPath.c_str());
                 return true;
             }
-            // Todo Remove in review
             AZ_Printf("GetInterestingSourceAssetsCRC", "Found asset:");
             AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_sourceAssetRelativePath  : %s", foundAsset.m_sourceAssetRelativePath.c_str());
             AZ_Printf("GetInterestingSourceAssetsCRC", "\tm_sourceAssetGlobalPath    : %s", foundAsset.m_sourceAssetGlobalPath.c_str());
@@ -253,7 +252,8 @@ namespace ROS2::Utils
         const AZStd::unordered_set<AZStd::string>& meshesFilenames,
         const AZStd::string& urdFilename,
         const AZStd::unordered_set<AZStd::string>& colliders,
-        const AZStd::unordered_set<AZStd::string>& visuals)
+        const AZStd::unordered_set<AZStd::string>& visuals,
+        AZ::IO::FileIOBase* fileIO)
     {
         auto enviromentalVariable = std::getenv("AMENT_PREFIX_PATH");
         AZ_Error("UrdfAssetMap", enviromentalVariable, "AMENT_PREFIX_PATH is not found.");
@@ -267,7 +267,6 @@ namespace ROS2::Utils
         //! Maps the unresolved urdf path to global path
         AZStd::unordered_map<AZStd::string, AZ::IO::Path> copiedFiles;
 
-        auto* fileIO = AZ::IO::FileIOBase::GetInstance();
         AZ_Assert(fileIO, "No FileIO instance") AZ::Crc32 urdfFileCrc;
         urdfFileCrc.Add(urdFilename);
         const AZ::IO::Path urdfPath(urdFilename);

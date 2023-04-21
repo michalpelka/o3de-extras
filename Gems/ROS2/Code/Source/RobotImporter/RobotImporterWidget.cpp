@@ -42,7 +42,6 @@ namespace ROS2
         connect(m_prefabMakerPage, &QWizardPage::completeChanged, this, &RobotImporterWidget::OnUrdfCreated);
         connect(m_prefabMakerPage, &PrefabMakerPage::onCreateButtonPressed, this, &RobotImporterWidget::onCreateButtonPressed);
         connect(this, &RobotImporterWidget::SignalFinalizeURDFCreation, this, &RobotImporterWidget::FinalizeURDFCreation);
-
         connect(
             this,
             &QWizard::customButtonClicked,
@@ -91,6 +90,7 @@ namespace ROS2
                 {
                     m_parsedUrdf = outcome.m_urdfHandle;
                     report += "# " + tr("XACRO execution succeeded") + "\n";
+                    m_assetPage->ClearAssetsList();
                 }
                 else
                 {
@@ -143,6 +143,7 @@ namespace ROS2
                 // Report the status of skipping this page
                 AZ_Printf("Wizard", "Wizard skips m_checkUrdfPage since there is no errors in URDF\n");
                 m_meshNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, true);
+                m_assetPage->ClearAssetsList();
             }
             else
             {
@@ -175,8 +176,7 @@ namespace ROS2
 
     void RobotImporterWidget::FillAssetPage()
     {
-        m_assetPage->ClearAssetsList();
-        if (m_parsedUrdf)
+        if (m_parsedUrdf && m_assetPage->IsEmpty())
         {
             auto collidersNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), false, true);
             auto visualNames = Utils::GetMeshesFilenames(m_parsedUrdf->getRoot(), true, false);
@@ -246,6 +246,7 @@ namespace ROS2
                     m_assetPage->ReportAsset(sourceAssetUuid, meshPath, kNotFound, kNotFoundAz, AZ::Crc32(), kNotFoundAz);
                 };
             }
+            m_assetPage->StartWatchAsset();
         }
     }
 
@@ -335,6 +336,7 @@ namespace ROS2
         }
         m_prefabMaker = AZStd::make_unique<URDFPrefabMaker>(m_urdfPath.String(), m_parsedUrdf, prefabPath.String(), m_urdfAssetsMapping);
         m_prefabMaker->CreatePrefabFromURDF();
+        emit SignalFinalizeURDFCreation();
     }
     void RobotImporterWidget::FinalizeURDFCreation()
     {

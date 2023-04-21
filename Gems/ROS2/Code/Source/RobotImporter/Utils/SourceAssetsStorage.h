@@ -98,11 +98,13 @@ namespace ROS2::Utils
     //! @param urdFilename - urdfFileName
     //! @param colliders - files to create collider assetinfo (as unresolved urdf pathes)
     //! @param visuals - files to create visual assetinfo (as unresolved urdf pathes)
+    //! @param fileIO - instance to fileIO class, exposed for testability
     //! @returns absolute paths to copied files
     UrdfAssetMap CopyAssetForURDFAndCreateAssetMap(
         const AZStd::unordered_set<AZStd::string>& meshesFilenames,
         const AZStd::string& urdFilename,
         const AZStd::unordered_set<AZStd::string>& colliders,
-        const AZStd::unordered_set<AZStd::string>& visual);
+        const AZStd::unordered_set<AZStd::string>& visual,
+        AZ::IO::FileIOBase* fileIO = AZ::IO::FileIOBase::GetInstance());
 
 } // namespace ROS2::Utils
