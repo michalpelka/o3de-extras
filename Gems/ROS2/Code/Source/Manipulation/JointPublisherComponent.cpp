@@ -69,17 +69,19 @@ namespace ROS2
             AZ_Assert(entity, "Unknown entity %s", descendantID.ToString().c_str());
             auto* frameComponent = entity->FindComponent<ROS2FrameComponent>();
             auto* hingeComponent = entity->FindComponent<PhysX::HingeJointComponent>();
+
             if (frameComponent && hingeComponent)
             {
                 AZ::Name jointName = frameComponent->GetJointName();
-                m_hierarchyMap[jointName] = *hingeComponent;
+                AZ_Printf("JointPublisherComponent", "Adding entity %s %s to the hierarchy map with joint name %s\n", entity->GetName().c_str(), descendantID.ToString().c_str(), jointName.GetCStr() );
+                m_hierarchyMap[jointName] = AZ::EntityComponentIdPair(entity->GetId(), hingeComponent->GetId());
                 m_jointstateMsg.name.push_back(jointName.GetCStr());
                 m_jointstateMsg.position.push_back(0.0f);
             }
         }
     }
 
-    AZStd::unordered_map<AZ::Name, PhysX::HingeJointComponent>  &JointPublisherComponent::GetHierarchyMap()
+    AZStd::unordered_map<AZ::Name, AZ::EntityComponentIdPair>  &JointPublisherComponent::GetHierarchyMap()
     {
         return m_hierarchyMap;
     }
@@ -91,7 +93,9 @@ namespace ROS2
         ros_header.frame_id = GetFrameID().data();
         ros_header.stamp = ROS2::ROS2Interface::Get()->GetROSTimestamp();
         m_jointstateMsg.header = ros_header;
-        for ([[maybe_unused]] auto& [name, hingeComponent] : m_hierarchyMap)
+        m_jointstateMsg.position.resize(m_hierarchyMap.size());
+        m_jointstateMsg.name.resize(m_hierarchyMap.size());
+        for (auto& [name, hingeComponent] : m_hierarchyMap)
         {
             m_jointstateMsg.position[i] = GetJointPosition(hingeComponent);
             m_jointstateMsg.name[i] = name.GetCStr();
@@ -99,13 +103,10 @@ namespace ROS2
         }
     }
 
-    float JointPublisherComponent::GetJointPosition(const AZ::Component& hingeComponent) const
+    float JointPublisherComponent::GetJointPosition(const AZ::EntityComponentIdPair idPair) const
     {
         float position{0};
-        auto componentId = hingeComponent.GetId();
-        auto entityId = hingeComponent.GetEntityId();
-        const AZ::EntityComponentIdPair id(entityId,componentId);
-        PhysX::JointRequestBus::EventResult(position, id, &PhysX::JointRequests::GetPosition);
+        PhysX::JointRequestBus::EventResult(position, idPair, &PhysX::JointRequests::GetPosition);
         return position;
     }
 

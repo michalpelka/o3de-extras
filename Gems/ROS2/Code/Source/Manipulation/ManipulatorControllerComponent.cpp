@@ -21,7 +21,7 @@ namespace ROS2
         AZ::TickBus::Handler::BusConnect();
         m_actionServerClass = AZStd::make_unique<FollowJointTrajectoryActionServer>();
         m_actionServerClass->CreateServer(m_ROS2ControllerName);
-        InitializePid();        
+        InitializePid();
     }
 
     void ManipulatorControllerComponent::Deactivate()
@@ -61,14 +61,14 @@ namespace ROS2
                     ->DataElement(
                         AZ::Edit::UIHandlers::ComboBox,
                         &ManipulatorControllerComponent::m_controllerType,
-                        "Controller type", 
+                        "Controller type",
                         "Different controller types to command the joints of the manipulator")
                     ->EnumAttribute(ManipulatorControllerComponent::Controller::FeedForward, "FeedForward")
                     ->EnumAttribute(ManipulatorControllerComponent::Controller::PID, "PID")
                     ->DataElement(
-                        AZ::Edit::UIHandlers::Default, 
+                        AZ::Edit::UIHandlers::Default,
                         &ManipulatorControllerComponent::m_pidConfigurationVector,
-                        "PIDs Configuration", 
+                        "PIDs Configuration",
                         "PID controllers configuration (for all the joints)");
             }
         }
@@ -94,13 +94,10 @@ namespace ROS2
         }
     }
 
-    float ManipulatorControllerComponent::GetJointPosition(const AZ::Component& hingeComponent)
+    float ManipulatorControllerComponent::GetJointPosition(const AZ::EntityComponentIdPair idPair)
     {
         float position{0};
-        auto componentId = hingeComponent.GetId();
-        auto entityId = hingeComponent.GetEntityId();
-        const AZ::EntityComponentIdPair id(entityId,componentId);
-        PhysX::JointRequestBus::EventResult(position, id, &PhysX::JointRequests::GetPosition);
+        PhysX::JointRequestBus::EventResult(position, idPair, &PhysX::JointRequests::GetPosition);
         return position;
     }
 
@@ -115,16 +112,18 @@ namespace ROS2
     {
         // PID method
         float error = desiredPosition - currentPosition;
-        float command = m_pidConfigurationVector.at(jointIndex).ComputeCommand(error, deltaTimeNs);
-        return command;
+        AZ_Warning("ManipulatorControllerComponent", jointIndex < m_pidConfigurationVector.size(), "Joint index out of range");
+        if(jointIndex < m_pidConfigurationVector.size())
+        {
+            float command = m_pidConfigurationVector.at(jointIndex).ComputeCommand(error, deltaTimeNs);
+            return command;
+        }
+        return 0;
     }
 
-    void ManipulatorControllerComponent::SetJointVelocity(AZ::Component& hingeComponent, const float desiredVelocity)
+    void ManipulatorControllerComponent::SetJointVelocity(const AZ::EntityComponentIdPair idPair, const float desiredVelocity)
     {
-        auto componentId = hingeComponent.GetId();
-        auto entityId = hingeComponent.GetEntityId();
-        const AZ::EntityComponentIdPair id(entityId,componentId);
-        PhysX::JointRequestBus::Event(id, &PhysX::JointRequests::SetVelocity, desiredVelocity);
+        PhysX::JointRequestBus::Event(idPair, &PhysX::JointRequests::SetVelocity, desiredVelocity);
     }
 
     void ManipulatorControllerComponent::KeepStillPosition([[maybe_unused]] const uint64_t deltaTimeNs)
@@ -134,29 +133,33 @@ namespace ROS2
             InitializeCurrentPosition();
             m_keepStillPositionInitialize = true;
         }
-        
+
         int jointIndex = 0;
         for (auto & [jointName , desiredPosition] : m_jointKeepStillPosition)
         {
-            float currentPosition;
-
+            if (jointIndex >= m_pidConfigurationVector.size())
+            {
+                break;
+            }
             auto* jointPublisherComponent = GetEntity()->FindComponent<JointPublisherComponent>();
             if (jointPublisherComponent)
             {
-                currentPosition = GetJointPosition(jointPublisherComponent->GetHierarchyMap()[jointName]);
+                AZ_Assert(jointPublisherComponent->GetHierarchyMap().contains(jointName),
+                          "Joint name %s not found in the hierarchy map", AZStd::string(jointName.GetStringView()).c_str());
+                float currentPosition = GetJointPosition(jointPublisherComponent->GetHierarchyMap()[jointName]);
                 float desiredVelocity;
                 if (m_controllerType == Controller::FeedForward)
                 {
                     desiredVelocity = ComputeFFJointVelocity(
-                            currentPosition, 
-                            desiredPosition, 
-                            rclcpp::Duration::from_nanoseconds(5e8)); // Dummy forward time reference 
+                            currentPosition,
+                            desiredPosition,
+                            rclcpp::Duration::from_nanoseconds(5e8)); // Dummy forward time reference
                 }
                 else if(m_controllerType == Controller::PID)
                 {
                     desiredVelocity = ComputePIDJointVelocity(
-                            currentPosition, 
-                            desiredPosition, 
+                            currentPosition,
+                            desiredPosition,
                             deltaTimeNs,
                             jointIndex);
                 }
@@ -164,7 +167,6 @@ namespace ROS2
                 {
                     desiredVelocity = 0.0f;
                 }
-                                
                 SetJointVelocity(jointPublisherComponent->GetHierarchyMap()[jointName], desiredVelocity);
 
                 jointIndex++;
@@ -209,15 +211,15 @@ namespace ROS2
                 if (m_controllerType == Controller::FeedForward)
                 {
                     desiredVelocity = ComputeFFJointVelocity(
-                            currentPosition, 
-                            desiredPosition, 
+                            currentPosition,
+                            desiredPosition,
                             m_timeStartingExecutionTraj + timeFromStart - timeNow);
                 }
                 else if (m_controllerType == Controller::PID)
                 {
                     desiredVelocity = ComputePIDJointVelocity(
-                            currentPosition, 
-                            desiredPosition, 
+                            currentPosition,
+                            desiredPosition,
                             deltaTimeNs,
                             jointIndex);
                 }
@@ -225,14 +227,19 @@ namespace ROS2
                 {
                     desiredVelocity = 0.0f;
                 }
-                
-                SetJointVelocity(jointPublisherComponent->GetHierarchyMap()[AZ::Name(jointName.c_str())], desiredVelocity);
-
+                const auto& hierarchy = jointPublisherComponent->GetHierarchyMap();
+                if (hierarchy.contains(AZ::Name(jointName.c_str())))
+                {
+                    auto componentId = hierarchy.at(AZ::Name(jointName.c_str()));
+                    SetJointVelocity(componentId, desiredVelocity);
+                }
+                else
+                {
+                    AZ_Warning("ManipulatorControllerComponent", false, "Joint name %s not found in the hierarchy map", jointName.c_str());
+                }
                 jointIndex++;
             }
         }
-
-        
     }
 
     void ManipulatorControllerComponent::OnTick([[maybe_unused]] float deltaTime, [[maybe_unused]] AZ::ScriptTimePoint time)
