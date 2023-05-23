@@ -3,6 +3,7 @@
 #include <AzCore/Component/Component.h>
 #include <AzCore/Component/TickBus.h>
 #include <Source/HingeJointComponent.h>
+#include <Source/ArticulationLinkComponent.h>
 #include <rclcpp/publisher.hpp>
 #include <sensor_msgs/msg/joint_state.hpp>
 
@@ -46,5 +47,8 @@ namespace ROS2
 
         //! Frequency in Hz (1/s).
         float m_frequency = 10;
+        bool m_useJoints {false};
+        bool m_useArticulation {false};
+        PhysX::ArticulationJointAxis m_articulationFreeAxis{PhysX::ArticulationJointAxis::Twist};
     };
 } // namespace ROS2
