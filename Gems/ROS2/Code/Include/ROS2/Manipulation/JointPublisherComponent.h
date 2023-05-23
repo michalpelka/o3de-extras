@@ -29,7 +29,32 @@ namespace ROS2
         static void GetRequiredServices(AZ::ComponentDescriptor::DependencyArrayType& required);
         static void Reflect(AZ::ReflectContext* context);
 
-        AZStd::unordered_map<AZ::Name, AZ::EntityComponentIdPair> &GetHierarchyMap();
+        //! Returns read-only reference to the map of joint names and their corresponding EntityComponentIdPair.
+        //! Returned map allows to get the joint name by EntityComponentIdPair and vice versa.
+        //! @returns const reference to the map.
+        const AZStd::unordered_map<AZ::Name, AZ::EntityComponentIdPair> &GetHierarchyMap() const ;
+
+        //! Returns the joint position by the joint name
+        //! @param name joint name
+        //! @returns joint position
+        float GetJointPosition(const AZ::Name& name) const;
+
+        //! Returns the joint position by the joint name
+        //! @param namestr joint name as string
+        //! @returns joint position
+        float GetJointPosition(const AZStd::string& namestr) const;
+
+        //! Returns the joint free axis in the articulation.
+        //! Note, this is only valid if the articulation is used in hierarchy.
+        //! @param name joint name
+        //! @returns joint free axis
+        PhysX::ArticulationJointAxis GetArticulationFreeAxis(const AZStd::string& namestr) const;
+
+        //! Returns the joint free axis in the articulation.
+        //! Note, this is only valid if the articulation is used in hierarchy.
+        //! @param name joint name
+        //! @returns joint free axis
+        PhysX::ArticulationJointAxis GetArticulationFreeAxis(const AZ::Name& name) const;
 
     private:
         void PublishMessage();
@@ -37,9 +62,9 @@ namespace ROS2
         void Initialize();
         AZStd::string GetFrameID() const;
 
-        float GetJointPosition(const AZ::EntityComponentIdPair idPair) const;
-
         AZStd::unordered_map<AZ::Name, AZ::EntityComponentIdPair> m_hierarchyMap;
+        AZStd::unordered_map<AZ::Name, PhysX::ArticulationJointAxis> m_jointAxisMap;
+
         std::shared_ptr<rclcpp::Publisher<sensor_msgs::msg::JointState>> m_jointstatePublisher;
         sensor_msgs::msg::JointState m_jointstateMsg;
         bool m_initialized{false};
@@ -49,6 +74,5 @@ namespace ROS2
         float m_frequency = 10;
         bool m_useJoints {false};
         bool m_useArticulation {false};
-        PhysX::ArticulationJointAxis m_articulationFreeAxis{PhysX::ArticulationJointAxis::Twist};
     };
 } // namespace ROS2
