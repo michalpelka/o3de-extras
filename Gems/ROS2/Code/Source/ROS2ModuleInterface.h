@@ -35,6 +35,7 @@
 #include <VehicleDynamics/ModelComponents/SkidSteeringModelComponent.h>
 #include <VehicleDynamics/VehicleModelComponent.h>
 #include <VehicleDynamics/WheelControllerComponent.h>
+#include <FactorySimulation/ConveyorBeltComponent.h>
 
 namespace ROS2
 {
@@ -80,6 +81,7 @@ namespace ROS2
                     JointPublisherComponent::CreateDescriptor(),
                     ManipulatorControllerComponent::CreateDescriptor(),
                     PidMotorControllerComponent::CreateDescriptor(),
+                    ConveyorBeltComponent::CreateDescriptor(),
                 });
         }
 

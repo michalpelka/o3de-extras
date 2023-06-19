@@ -19,6 +19,8 @@ set(FILES
         Source/Clock/SimulationClock.cpp
         Source/Communication/QoS.cpp
         Source/Communication/TopicConfiguration.cpp
+        Source/FactorySimulation/ConveyorBeltComponent.cpp
+        Source/FactorySimulation/ConveyorBeltComponent.h
         Source/Frame/NamespaceConfiguration.cpp
         Source/Frame/ROS2FrameComponent.cpp
         Source/Frame/ROS2Transform.cpp
