@@ -36,7 +36,7 @@
 #include <VehicleDynamics/VehicleModelComponent.h>
 #include <VehicleDynamics/WheelControllerComponent.h>
 #include <FactorySimulation/ConveyorBeltComponent.h>
-
+#include <FactorySimulation/ConveyorBeltComponentKinematic.h>
 namespace ROS2
 {
     class ROS2ModuleInterface : public AZ::Module
@@ -82,6 +82,7 @@ namespace ROS2
                     ManipulatorControllerComponent::CreateDescriptor(),
                     PidMotorControllerComponent::CreateDescriptor(),
                     ConveyorBeltComponent::CreateDescriptor(),
+                    ConveyorBeltComponentKinematic::CreateDescriptor(),
                 });
         }
 

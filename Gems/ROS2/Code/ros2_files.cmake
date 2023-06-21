@@ -21,6 +21,8 @@ set(FILES
         Source/Communication/TopicConfiguration.cpp
         Source/FactorySimulation/ConveyorBeltComponent.cpp
         Source/FactorySimulation/ConveyorBeltComponent.h
+        Source/FactorySimulation/ConveyorBeltComponentKinematic.cpp
+        Source/FactorySimulation/ConveyorBeltComponentKinematic.h
         Source/Frame/NamespaceConfiguration.cpp
         Source/Frame/ROS2FrameComponent.cpp
         Source/Frame/ROS2Transform.cpp
