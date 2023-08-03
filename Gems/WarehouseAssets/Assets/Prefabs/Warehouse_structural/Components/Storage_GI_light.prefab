@@ -75,6 +75,7 @@
                             ],
                             "Intensity": 20.0,
                             "AttenuationRadius": 12.10598087310791,
+                            "Affects GI": false,
                             "Affects GI Factor": 2.0
                         }
                     }
