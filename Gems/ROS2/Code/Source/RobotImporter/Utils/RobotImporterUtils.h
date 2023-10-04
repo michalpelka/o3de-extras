@@ -88,7 +88,8 @@ namespace ROS2::Utils
     //! Retrieve all joints from URDF/SDF in which the specified link is a child in a sdf::Joint.
     //! @param sdfModel Model object of SDF document corresponding to the <model> tag. It used to query joints
     //! @param linkName Name of link which to query in joint objects ChildName()
-    //! @param gatherNestedModelJoints When true recurses to any nested <model> tags of the Model object and also gathers their joints as well
+    //! @param gatherNestedModelJoints When true recurses to any nested <model> tags of the Model object and also gathers their joints as
+    //! well
     //! @returns vector of joints where link is a child
     AZStd::vector<const sdf::Joint*> GetJointsForChildLink(
         const sdf::Model& sdfModel, AZStd::string_view linkName, bool gatherNestedModelJoints = false);
@@ -96,7 +97,8 @@ namespace ROS2::Utils
     //! Retrieve all joints from URDF/SDF in which the specified link is a parent in a sdf::Joint.
     //! @param sdfModel Model object of SDF document corresponding to the <model> tag. It used to query joints
     //! @param linkName Name of link which to query in joint objects ParentName()
-    //! @param gatherNestedModelJoints When true recurses to any nested <model> tags of the Model object and also gathers their joints as well
+    //! @param gatherNestedModelJoints When true recurses to any nested <model> tags of the Model object and also gathers their joints as
+    //! well
     //! @returns vector of joints where link is a parent
     AZStd::vector<const sdf::Joint*> GetJointsForParentLink(
         const sdf::Model& sdfModel, AZStd::string_view linkName, bool gatherNestedModelJoints = false);
