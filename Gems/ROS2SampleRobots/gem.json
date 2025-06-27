@@ -18,10 +18,9 @@
         ""
     ],
     "icon_path": "preview.png",
-    "requirements": "Requires ROS 2 Gem",
+    "requirements": "Does not require ROS 2 Gem",
     "documentation_url": "",
     "dependencies": [
-        "ROS2>=3.1.0"
     ],
     "repo_uri": "https://raw.githubusercontent.com/o3de/o3de-extras/development",
     "compatible_engines": [
