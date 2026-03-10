@@ -24,6 +24,8 @@ set(FILES
         Source/Camera/ROS2CameraSystemComponent.h
         Source/Camera/PostProcessing/ROS2ImageEncodingConversionComponent.cpp
         Source/Camera/PostProcessing/ROS2ImageEncodingConversionComponent.h
+        Source/Camera/PostProcessing/ROS2FisheyeDistortionComponent.cpp
+        Source/Camera/PostProcessing/ROS2FisheyeDistortionComponent.h
         Source/Camera/CameraUtilities.cpp
         Source/Camera/CameraUtilities.h
         Source/Clock/ROS2Clock.cpp

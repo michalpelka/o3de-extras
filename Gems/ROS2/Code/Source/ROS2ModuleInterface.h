@@ -9,6 +9,7 @@
 
 #include <AzCore/Memory/SystemAllocator.h>
 #include <AzCore/Module/Module.h>
+#include <Camera/PostProcessing/ROS2FisheyeDistortionComponent.h>
 #include <Camera/PostProcessing/ROS2ImageEncodingConversionComponent.h>
 #include <Camera/ROS2CameraSensorComponent.h>
 #include <Camera/ROS2CameraSystemComponent.h>
@@ -76,6 +77,7 @@ namespace ROS2
                     ROS2FrameComponent::CreateDescriptor(),
                     ROS2RobotControlComponent::CreateDescriptor(),
                     ROS2ImageEncodingConversionComponent::CreateDescriptor(),
+                    ROS2FisheyeDistortionComponent::CreateDescriptor(),
                     AckermannControlComponent::CreateDescriptor(),
                     RigidBodyTwistControlComponent::CreateDescriptor(),
                     SkidSteeringControlComponent::CreateDescriptor(),

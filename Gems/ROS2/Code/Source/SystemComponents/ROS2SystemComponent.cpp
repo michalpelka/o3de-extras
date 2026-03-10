@@ -32,7 +32,7 @@
 #include <AzFramework/API/ApplicationAPI.h>
 #include <ROS2/Sensor/SensorConfigurationRequestBus.h>
 #include <ROS2/Utilities/ROS2Conversions.h>
-
+#include <Atom/Feature/CubeMapCapture/CubeMapCaptureFeatureProcessorInterface.h>
 namespace ROS2
 {
     constexpr AZStd::string_view ClockTypeConfigurationKey = "/O3DE/ROS2/ClockType";
@@ -253,6 +253,7 @@ namespace ROS2
 
     void ROS2SystemComponent::OnTick([[maybe_unused]] float deltaTime, [[maybe_unused]] AZ::ScriptTimePoint time)
     {
+
         if (rclcpp::ok())
         {
             m_dynamicTFBroadcaster->sendTransform(m_frameTransforms);
