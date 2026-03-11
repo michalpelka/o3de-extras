@@ -8,8 +8,14 @@
 
 #pragma once
 
+#include "Atom/Feature/ParamMacros/MapAllCommon.inl"
+
 #include <AzCore/Component/Component.h>
+#include <AzCore/Component/TickBus.h>
 #include <ROS2/Camera/CameraPostProcessingRequestBus.h>
+#include <Atom/Feature/CubeMapCapture/CubeMapCaptureFeatureProcessorInterface.h>
+#include "rclcpp/rclcpp.hpp"
+#include <sensor_msgs/msg/image.hpp>
 
 namespace ROS2
 {
@@ -30,7 +36,7 @@ namespace ROS2
     //! point at the image centre.
     class ROS2FisheyeDistortionComponent
         : public AZ::Component
-        , public CameraPostProcessingRequestBus::Handler
+        , public AZ::TickBus::Handler
     {
     public:
         AZ_COMPONENT(ROS2FisheyeDistortionComponent, "{B47D9F3A-C812-4E5F-A0D7-823E1CF94B56}");
@@ -42,20 +48,13 @@ namespace ROS2
         void Activate() override;
         void Deactivate() override;
 
-        //! CameraPostProcessingRequestBus::Handler overrides
-        void ApplyPostProcessing(sensor_msgs::msg::Image& image) override;
-        AZ::u8 GetPriority() const override;
 
+        void OnTick(float deltaTime, AZ::ScriptTimePoint time) override;
+
+        AZ::Render::CubeMapCaptureHandle  m_cubeMapCaptureHandle;
+        AZ::Render::CubeMapCaptureFeatureProcessorInterface* m_cubeMapCaptureFeatureProcessor = nullptr;
     private:
-        AZ::u8 m_priority = CameraPostProcessingRequests::DEFAULT_PRIORITY;
-
-        //! Vertical field of view of the input pinhole image in degrees.
-        //! Must match the camera sensor's configured vertical FoV.
-        float m_inputVerticalFovDeg = 90.0f;
-
-        //! Focal length of the fisheye output in pixels (equidistant model: r = f * theta).
-        //! Controls how wide the fisheye view is: a smaller value captures a wider angle.
-        //! For a 480-pixel-tall image, ~152 px yields ~180 degree FoV.
-        float m_fisheyeFocalLength = 240.0f;
+        rclcpp::Publisher<sensor_msgs::msg::Image>::SharedPtr m_imagePublisher;
+        bool m_inprogress = false;
     };
 } // namespace ROS2

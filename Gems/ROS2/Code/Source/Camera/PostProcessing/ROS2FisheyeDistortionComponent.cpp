@@ -7,184 +7,158 @@
  */
 
 #include "ROS2FisheyeDistortionComponent.h"
-#include <AzCore/Math/MathUtils.h>
 #include <AzCore/Serialization/EditContext.h>
 #include <AzCore/Serialization/SerializeContext.h>
-#include <sensor_msgs/msg/detail/image__struct.hpp>
+#include <Atom/RPI.Public/Pass/Specific/EnvironmentCubeMapPass.h>
+#include <Atom/RPI.Public/Scene.h>
 
-#include <cmath>
-#include <vector>
-
+#include <cstring>
+#include <AzCore/Component/TransformBus.h>
+#include <ROS2/ROS2Bus.h>
 namespace ROS2
 {
+    namespace
+    {
+        // IEEE 754 half-float → float conversion (handles normals, zeros, inf, nan).
+        float HalfToFloat(uint16_t h)
+        {
+            const uint32_t sign     = static_cast<uint32_t>(h >> 15) << 31;
+            const uint32_t exp      = (h >> 10) & 0x1F;
+            const uint32_t mantissa = h & 0x3FF;
+
+            uint32_t bits;
+            if (exp == 0)
+            {
+                bits = sign | (mantissa << 13); // zero / denormal → treat as zero
+            }
+            else if (exp == 31)
+            {
+                bits = sign | 0x7F800000u | (mantissa << 13); // inf / nan
+            }
+            else
+            {
+                bits = sign | ((exp + 112u) << 23) | (mantissa << 13); // normal
+            }
+
+            float f;
+            std::memcpy(&f, &bits, sizeof(f));
+            return f;
+        }
+
+        // Simple Reinhard tone-map + gamma 2.2, returns value in [0, 255].
+        uint8_t TonemapChannel(float linear)
+        {
+            linear = linear / (1.0f + linear); // Reinhard
+            linear = std::pow(linear < 0.0f ? 0.0f : linear, 1.0f / 2.2f); // gamma
+            return static_cast<uint8_t>(linear * 255.0f + 0.5f);
+        }
+
+        sensor_msgs::msg::Image BuildCubeMapImageMessage(uint8_t* const* faces)
+        {
+            constexpr uint32_t faceSize   = AZ::RPI::EnvironmentCubeMapPass::CubeMapFaceSize; // 1024
+            constexpr uint32_t numFaces   = 6;
+            constexpr uint32_t stripWidth = faceSize * numFaces;
+
+            sensor_msgs::msg::Image msg;
+            msg.encoding = "rgb8";
+            msg.width    = stripWidth;
+            msg.height   = faceSize;
+            msg.step     = stripWidth * 3;
+            msg.data.resize(msg.step * msg.height);
+
+            for (uint32_t row = 0; row < faceSize; ++row)
+            {
+                for (uint32_t face = 0; face < numFaces; ++face)
+                {
+                    const uint16_t* src = reinterpret_cast<const uint16_t*>(faces[face]);
+                    src += row * faceSize * 4; // 4 channels per pixel
+
+                    for (uint32_t col = 0; col < faceSize; ++col)
+                    {
+                        const uint32_t dstOffset = (row * stripWidth + face * faceSize + col) * 3;
+                        msg.data[dstOffset + 0] = TonemapChannel(HalfToFloat(src[col * 4 + 0]));
+                        msg.data[dstOffset + 1] = TonemapChannel(HalfToFloat(src[col * 4 + 1]));
+                        msg.data[dstOffset + 2] = TonemapChannel(HalfToFloat(src[col * 4 + 2]));
+                    }
+                }
+            }
+
+            return msg;
+        }
+    } // namespace
+
     void ROS2FisheyeDistortionComponent::Reflect(AZ::ReflectContext* context)
     {
         if (auto serializeContext = azrtti_cast<AZ::SerializeContext*>(context))
         {
             serializeContext->Class<ROS2FisheyeDistortionComponent, AZ::Component>()
-                ->Version(0)
-                ->Field("Priority", &ROS2FisheyeDistortionComponent::m_priority)
-                ->Field("InputVerticalFovDeg", &ROS2FisheyeDistortionComponent::m_inputVerticalFovDeg)
-                ->Field("FisheyeFocalLength", &ROS2FisheyeDistortionComponent::m_fisheyeFocalLength);
+                ->Version(0);
 
             if (AZ::EditContext* ec = serializeContext->GetEditContext())
             {
                 ec->Class<ROS2FisheyeDistortionComponent>(
                       "Fisheye Distortion Component",
-                      "Applies fisheye equidistant distortion (r = f * theta) to a pinhole camera image")
+                      "Captures a cubemap and projects it using the equidistant fisheye model (r = f * theta)")
                     ->ClassElement(AZ::Edit::ClassElements::EditorData, "")
                     ->Attribute(AZ::Edit::Attributes::Category, "ROS2")
                     ->Attribute(AZ::Edit::Attributes::AppearsInAddComponentMenu, AZ_CRC("Game"))
                     ->Attribute(AZ::Edit::Attributes::Icon, "Editor/Icons/Components/ROS2CameraSensor.svg")
-                    ->Attribute(AZ::Edit::Attributes::ViewportIcon, "Editor/Icons/Components/Viewport/ROS2CameraSensor.svg")
-                    ->DataElement(
-                        AZ::Edit::UIHandlers::Default,
-                        &ROS2FisheyeDistortionComponent::m_priority,
-                        "Priority",
-                        "Priority of the post processing. Higher value means later execution.")
-                    ->Attribute(AZ::Edit::Attributes::Min, CameraPostProcessingRequests::MIN_PRIORITY)
-                    ->Attribute(AZ::Edit::Attributes::Max, CameraPostProcessingRequests::MAX_PRIORITY)
-                    ->DataElement(
-                        AZ::Edit::UIHandlers::Default,
-                        &ROS2FisheyeDistortionComponent::m_inputVerticalFovDeg,
-                        "Input Vertical FoV (deg)",
-                        "Vertical field of view of the input pinhole image in degrees. "
-                        "Must match the camera sensor's configured vertical FoV.")
-                    ->Attribute(AZ::Edit::Attributes::Min, 1.0f)
-                    ->Attribute(AZ::Edit::Attributes::Max, 179.0f)
-                    ->DataElement(
-                        AZ::Edit::UIHandlers::Default,
-                        &ROS2FisheyeDistortionComponent::m_fisheyeFocalLength,
-                        "Fisheye Focal Length (px)",
-                        "Focal length of the fisheye output in pixels (equidistant model: r = f * theta). "
-                        "For a 480 px tall image, ~152 px yields ~180 degree FoV.")
-                    ->Attribute(AZ::Edit::Attributes::Min, 1.0f);
+                    ->Attribute(AZ::Edit::Attributes::ViewportIcon, "Editor/Icons/Components/Viewport/ROS2CameraSensor.svg");
             }
         }
     }
 
     void ROS2FisheyeDistortionComponent::Activate()
     {
-        CameraPostProcessingRequestBus::Handler::BusConnect(GetEntityId());
+        AZ::TickBus::Handler::BusConnect();
+        auto node = ROS2::ROS2Interface::Get()->GetNode();
+        m_imagePublisher = node->create_publisher<sensor_msgs::msg::Image>("/cubemap", 1);
+        m_inprogress = false;
     }
 
     void ROS2FisheyeDistortionComponent::Deactivate()
     {
-        CameraPostProcessingRequestBus::Handler::BusDisconnect();
+        AZ::TickBus::Handler::BusDisconnect();
+        if (m_cubeMapCaptureFeatureProcessor && m_cubeMapCaptureHandle)
+        {
+            m_cubeMapCaptureFeatureProcessor->RemoveCubeMapCapture(m_cubeMapCaptureHandle);
+        }
     }
 
-    void ROS2FisheyeDistortionComponent::ApplyPostProcessing(sensor_msgs::msg::Image& image)
+    void ROS2FisheyeDistortionComponent::OnTick([[maybe_unused]] float deltaTime, [[maybe_unused]] AZ::ScriptTimePoint time)
     {
-        // Determine bytes per pixel; only rgb8 and rgba8 are supported.
-        int bytesPerPixel = 0;
-        if (image.encoding == "rgb8")
+
+        if (!m_cubeMapCaptureFeatureProcessor)
         {
-            bytesPerPixel = 3;
+            m_cubeMapCaptureFeatureProcessor =
+                AZ::RPI::Scene::GetFeatureProcessorForEntity<AZ::Render::CubeMapCaptureFeatureProcessorInterface>(GetEntityId());
         }
-        else if (image.encoding == "rgba8")
+        if (!m_cubeMapCaptureFeatureProcessor)
         {
-            bytesPerPixel = 4;
-        }
-        else
-        {
+            AZ_Error("FisheyeDistortion", false, "CubeMapCaptureFeatureProcessor not found on scene");
             return;
         }
-
-        const int width = static_cast<int>(image.width);
-        const int height = static_cast<int>(image.height);
-
-        if (width <= 0 || height <= 0)
+        if (!m_cubeMapCaptureHandle)
         {
-            return;
+            const AZ::Transform worldTM = GetEntity()->GetTransform()->GetWorldTM();
+            m_cubeMapCaptureHandle = m_cubeMapCaptureFeatureProcessor->AddCubeMapCapture(worldTM);
         }
 
-        // Derive pinhole focal length from image height and vertical FoV.
-        // Assumes square pixels and principal point at image centre.
-        const float vFovRad = AZ::DegToRad(m_inputVerticalFovDeg);
-        const float pinholeFocalLength = (height * 0.5f) / std::tan(vFovRad * 0.5f);
 
-        const float cx = width * 0.5f;
-        const float cy = height * 0.5f;
-        const float f_fisheye = m_fisheyeFocalLength;
-
-        // Allocate output buffer, initialised to black.
-        std::vector<uint8_t> output(image.data.size(), 0);
-
-        for (int v = 0; v < height; ++v)
+        if (!m_inprogress)
         {
-            for (int u = 0; u < width; ++u)
-            {
-                // Offset of output pixel relative to the fisheye principal point.
-                const float dx = static_cast<float>(u) - cx;
-                const float dy = static_cast<float>(v) - cy;
-                const float r = std::sqrt(dx * dx + dy * dy);
-
-                // Equidistant model: r = f_fisheye * theta  →  theta = r / f_fisheye
-                const float theta = r / f_fisheye;
-
-                // Pinhole cameras can only represent angles strictly less than 90°.
-                // Skip pixels whose ray lies behind or exactly on the image plane.
-                if (theta >= AZ::Constants::HalfPi)
+            m_inprogress = true;
+            m_cubeMapCaptureFeatureProcessor->RenderCubeMap(
+                m_cubeMapCaptureHandle,
+                [this](uint8_t* const* cubeMapTextureData, [[maybe_unused]] const AZ::RHI::Format cubeMapTextureFormat)
                 {
-                    continue;
-                }
+                    m_imagePublisher->publish(BuildCubeMapImageMessage(cubeMapTextureData));
+                    std::cerr << "Published cubemap image message with timestamp " << ROS2Interface::Get()->GetROSTimestamp().sec << "." << ROS2Interface::Get()->GetROSTimestamp().nanosec << std::endl;
+                    m_inprogress = false;
+                },
 
-                // Project the 3D ray (described by theta and azimuth phi) onto the
-                // source pinhole image plane.
-                //   tan(theta) = radial_distance_on_plane / depth
-                //   u_src = f_pinhole * tan(theta) * cos(phi) + cx
-                //   v_src = f_pinhole * tan(theta) * sin(phi) + cy
-                // When r == 0 the ray is along the optical axis; avoid division by zero.
-                float u_src = cx;
-                float v_src = cy;
-                if (r > 1e-6f)
-                {
-                    const float tanTheta = std::tan(theta);
-                    const float scale = pinholeFocalLength * tanTheta / r;
-                    u_src = scale * dx + cx;
-                    v_src = scale * dy + cy;
-                }
-
-                // Bilinear interpolation: clamp to valid integer sample positions.
-                const int u0 = static_cast<int>(u_src);
-                const int v0 = static_cast<int>(v_src);
-
-                if (u0 < 0 || u0 >= width - 1 || v0 < 0 || v0 >= height - 1)
-                {
-                    continue;
-                }
-
-                const float du = u_src - static_cast<float>(u0);
-                const float dv = v_src - static_cast<float>(v0);
-
-                const int dstOffset = (v * width + u) * bytesPerPixel;
-
-                for (int c = 0; c < bytesPerPixel; ++c)
-                {
-                    const float p00 = static_cast<float>(image.data[(v0 * width + u0) * bytesPerPixel + c]);
-                    const float p10 = static_cast<float>(image.data[(v0 * width + (u0 + 1)) * bytesPerPixel + c]);
-                    const float p01 = static_cast<float>(image.data[((v0 + 1) * width + u0) * bytesPerPixel + c]);
-                    const float p11 = static_cast<float>(image.data[((v0 + 1) * width + (u0 + 1)) * bytesPerPixel + c]);
-
-                    const float interpolated =
-                        p00 * (1.0f - du) * (1.0f - dv) +
-                        p10 * du * (1.0f - dv) +
-                        p01 * (1.0f - du) * dv +
-                        p11 * du * dv;
-
-                    output[dstOffset + c] = static_cast<uint8_t>(interpolated + 0.5f);
-                }
-            }
+                /*relativePath=*/"");
         }
-
-        // Write the distorted data back into the image message.
-        // The encoding, dimensions, and step remain unchanged.
-        std::copy(output.begin(), output.end(), image.data.begin());
-    }
-
-    AZ::u8 ROS2FisheyeDistortionComponent::GetPriority() const
-    {
-        return m_priority;
     }
 
 } // namespace ROS2
